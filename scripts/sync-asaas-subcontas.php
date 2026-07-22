@@ -1,0 +1,6 @@
+<?php
+declare(strict_types=1);require __DIR__.'/bootstrap.php';
+use App\Core\Database;use App\Services\AsaasHttpClient;use App\Services\AsaasSubcontaService;
+$o=getopt('',['limit::','proprietario-id::','retry-errors','dry-run']);$limit=max(1,min(100,(int)($o['limit']??50)));$pid=(int)($o['proprietario-id']??0);$dry=isset($o['dry-run']);
+if(getenv('APP_ENV')==='production'||!str_contains(strtolower((string)getenv('ASAAS_BASE_URL')),'sandbox')){fwrite(STDERR,"Sincronizacao de producao bloqueada.\n");exit(2);}
+$db=Database::getConnection();$sql="SELECT proprietario_id FROM asaas_subcontas WHERE ambiente='sandbox' AND asaas_account_id IS NOT NULL".($pid>0?' AND proprietario_id=:p':'').(!isset($o['retry-errors'])?" AND status_local<>'erro'":'').' ORDER BY id LIMIT :lim';$s=$db->prepare($sql);if($pid>0)$s->bindValue(':p',$pid,PDO::PARAM_INT);$s->bindValue(':lim',$limit,PDO::PARAM_INT);$s->execute();$ids=$s->fetchAll(PDO::FETCH_COLUMN);if($dry){echo 'dry-run registros='.count($ids).PHP_EOL;exit(0);}$svc=new AsaasSubcontaService(new AsaasHttpClient(),$db);$fail=0;foreach($ids as$id){try{echo 'proprietario='.(int)$id.' status='.$svc->sincronizar((int)$id).PHP_EOL;}catch(Throwable$e){$fail++;fwrite(STDERR,'proprietario='.(int)$id.' erro_sanitizado'.PHP_EOL);}}exit($fail?1:0);

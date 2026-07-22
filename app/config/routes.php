@@ -8,6 +8,7 @@ use App\Controllers\AuthController;
 use App\Controllers\ChacaraController;
 use App\Controllers\HomeController;
 use App\Controllers\FinanceConfigController;
+use App\Controllers\FinancialOnboardingController;
 use App\Controllers\OwnerAvailabilityController;
 use App\Controllers\OwnerBillingController;
 use App\Controllers\OwnerChacaraController;
@@ -67,6 +68,9 @@ return static function (Router $router, array $config): void {
     $router->get('/proprietario/disponibilidade/{chacara_id}', [OwnerAvailabilityController::class, 'show']);
     $router->post('/proprietario/disponibilidade/salvar', [OwnerAvailabilityController::class, 'save']);
     $router->get('/proprietario/faturamento', [OwnerBillingController::class, 'index']);
+    $router->get('/proprietario/recebimentos', [FinancialOnboardingController::class, 'owner']);
+    $router->post('/proprietario/recebimentos/dados', [FinancialOnboardingController::class, 'save']);
+    $router->post('/proprietario/recebimentos/aceite', [FinancialOnboardingController::class, 'accept']);
     $router->get('/proprietario/reservas/{id}', [ReservaLifecycleController::class, 'proprietarioDetalhe']);
     $router->post('/proprietario/reservas/{id}/iniciar', [ReservaLifecycleController::class, 'iniciarProprietario']);
     $router->post('/proprietario/reservas/{id}/finalizar', [ReservaLifecycleController::class, 'finalizarProprietario']);
@@ -97,6 +101,9 @@ return static function (Router $router, array $config): void {
     $router->post('/admin/asaas-eventos/{id}/acao', [AsaasWebhookAdminController::class, 'action']);
     $router->get('/admin/configuracoes-financeiras', [FinanceConfigController::class, 'index']);
     $router->post('/admin/configuracoes-financeiras', [FinanceConfigController::class, 'store']);
+    $router->get('/admin/onboarding-financeiro', [FinancialOnboardingController::class, 'admin']);
+    $router->get('/admin/onboarding-financeiro/{id}', [FinancialOnboardingController::class, 'details']);
+    $router->post('/admin/onboarding-financeiro/{id}/acao', [FinancialOnboardingController::class, 'action']);
 
     if ($config['app_env'] !== 'development') {
         return;
