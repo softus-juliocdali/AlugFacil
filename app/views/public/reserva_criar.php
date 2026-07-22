@@ -1,76 +1,15 @@
 <?php
-$resolverFoto = static function (?string $foto, int $indice = 0): string {
-    $foto = trim(str_replace('\\', '/', (string) $foto));
-    $arquivo = $foto !== '' ? APP_ROOT . '/public/' . ltrim($foto, '/') : '';
-    return $arquivo !== '' && is_file($arquivo)
-        ? url('/' . ltrim($foto, '/'))
-        : asset('img/chacara-' . (($indice % 6) + 1) . '.jpg');
-};
-
-$foto = $resolverFoto($chacara['foto'] ?? $chacara['foto_principal'] ?? '', ((int) $chacara['id'] - 1));
-$valorDiaria = (float) $chacara['valor_diaria'];
+$foto=trim(str_replace('\\','/',(string)($chacara['foto']??'')));$arquivo=$foto!==''?APP_ROOT.'/public/'.ltrim($foto,'/'):'';$foto=$arquivo!==''&&is_file($arquivo)?url('/'.ltrim($foto,'/')):asset('img/chacara-'.((((int)$chacara['id']-1)%6)+1).'.jpg');
+$moeda=static fn(int $v):string=>'R$ '.number_format($v/100,2,',','.');$diaria=App\Services\PrecificacaoReservaService::decimalParaCentavos((string)$chacara['valor_diaria']);
+$pix=false;$cartao=[];foreach($meiosPagamento as$m){if($m['forma_pagamento']==='PIX')$pix=true;if($m['forma_pagamento']==='CREDIT_CARD')$cartao[]=(int)$m['quantidade_parcelas'];}
 ?>
-
-<section class="profile-page reservation-page">
-    <div class="container">
-        <nav class="profile-breadcrumb" aria-label="Navegação estrutural">
-            <a href="<?= url('/') ?>">Início</a><span>›</span>
-            <a href="<?= url('/chacara/' . (int) $chacara['id']) ?>"><?= e($chacara['nome']) ?></a><span>›</span>
-            <strong>Reservar</strong>
-        </nav>
-
-        <header class="profile-heading reservation-heading">
-            <div>
-                <span class="profile-kicker">Fluxo de reserva</span>
-                <h1>Reserve <?= e($chacara['nome']) ?></h1>
-                <p>Escolha o período da estadia e confira o total antes de confirmar.</p>
-            </div>
-        </header>
-
-        <div class="reservation-layout">
-            <article class="reservation-property-card">
-                <img src="<?= e($foto) ?>" alt="Foto principal de <?= e($chacara['nome']) ?>">
-                <div>
-                    <span class="section-kicker">Chácara selecionada</span>
-                    <h2><?= e($chacara['nome']) ?></h2>
-                    <p><?= e(implode(' · ', array_filter([$chacara['cidade'], $chacara['regiao']]))) ?></p>
-                    <div class="booking-price"><strong>R$ <?= e(number_format($valorDiaria, 2, ',', '.')) ?></strong><small>/ diária</small></div>
-                </div>
-            </article>
-
-            <form class="reservation-form" action="<?= url('/reserva/criar/' . (int) $chacara['id']) ?>" method="post" data-reservation-form>
-                <?= csrf_field() ?>
-                <input type="hidden" data-daily-rate value="<?= e(number_format($valorDiaria, 2, '.', '')) ?>">
-
-                <div class="reservation-form-grid">
-                    <label>
-                        Data inicial
-                        <input type="date" name="data_inicio" value="<?= e($dataInicio) ?>" min="<?= e($minDataInicio) ?>" required data-reservation-start>
-                    </label>
-                    <label>
-                        Data final
-                        <input type="date" name="data_fim" value="<?= e($dataFim) ?>" min="<?= e($minDataInicio) ?>" required data-reservation-end>
-                    </label>
-                </div>
-
-                <div class="reservation-summary">
-                    <div>
-                        <span>Quantidade de diárias</span>
-                        <strong><span data-reservation-nights><?= e((string) $quantidadeDiarias) ?></span></strong>
-                    </div>
-                    <div>
-                        <span>Valor da diária</span>
-                        <strong>R$ <?= e(number_format($valorDiaria, 2, ',', '.')) ?></strong>
-                    </div>
-                    <div class="reservation-total">
-                        <span>Valor total</span>
-                        <strong data-reservation-total>R$ <?= e(number_format($valorTotal, 2, ',', '.')) ?></strong>
-                    </div>
-                </div>
-
-                <p class="reservation-note">A reserva ficará como aguardando pagamento e será confirmada após a compensação.</p>
-                <button class="btn btn-book" type="submit">Confirmar Reserva</button>
-            </form>
-        </div>
-    </div>
-</section>
+<section class="profile-page reservation-page"><div class="container">
+<nav class="profile-breadcrumb"><a href="<?= url('/') ?>">In&iacute;cio</a><span>&rsaquo;</span><a href="<?= url('/chacara/'.(int)$chacara['id']) ?>"><?= e($chacara['nome']) ?></a><span>&rsaquo;</span><strong>Reservar</strong></nav>
+<header class="profile-heading reservation-heading"><div><span class="profile-kicker">Fluxo de reserva</span><h1>Reserve <?= e($chacara['nome']) ?></h1><p>Escolha o per&iacute;odo e o pagamento; confira o total antes de confirmar.</p></div></header>
+<div class="reservation-layout"><article class="reservation-property-card"><img src="<?= e($foto) ?>" alt="Foto principal"><div><span class="section-kicker">Im&oacute;vel selecionado</span><h2><?= e($chacara['nome']) ?></h2><p><?= e(implode(' - ',array_filter([$chacara['cidade'],$chacara['regiao']]))) ?></p><div class="booking-price"><strong><?= e($moeda($diaria)) ?></strong><small>/ di&aacute;ria l&iacute;quida</small></div></div></article>
+<form class="reservation-form" action="<?= url('/reserva/criar/'.(int)$chacara['id']) ?>" method="post"><?= csrf_field() ?><?php if($cotacaoId):?><input type="hidden" name="cotacao_id" value="<?= e($cotacaoId) ?>"><?php endif;?>
+<div class="reservation-form-grid"><label>Data inicial<input type="date" name="data_inicio" value="<?= e($dataInicio) ?>" min="<?= e($minDataInicio) ?>" required <?= $cotacao?'readonly':'' ?>></label><label>Data final<input type="date" name="data_fim" value="<?= e($dataFim) ?>" min="<?= e($minDataInicio) ?>" required <?= $cotacao?'readonly':'' ?>></label>
+<label>Forma de pagamento<select name="forma_pagamento" required><option value="">Selecione</option><?php if($pix):?><option value="PIX" <?= ($cotacao['forma_pagamento']??'')==='PIX'?'selected':'' ?>>PIX</option><?php endif;?><?php if($cartao):?><option value="CREDIT_CARD" <?= ($cotacao['forma_pagamento']??'')==='CREDIT_CARD'?'selected':'' ?>>Cart&atilde;o de cr&eacute;dito</option><?php endif;?></select></label><label>Parcelas<select name="quantidade_parcelas" required><?php if($pix):?><option value="1">1x / PIX</option><?php endif;?><?php foreach($cartao as$p):?><option value="<?= $p ?>" <?= (int)($cotacao['quantidade_parcelas']??0)===$p?'selected':'' ?>><?= $p ?>x no cart&atilde;o</option><?php endforeach;?></select></label></div>
+<?php if(!$meiosPagamento):?><div class="payment-empty">A precifica&ccedil;&atilde;o est&aacute; indispon&iacute;vel at&eacute; que o administrador configure as taxas.</div><?php endif;?>
+<div class="reservation-summary"><div><span>Quantidade de di&aacute;rias</span><strong><?= $quantidadeDiarias ?></strong></div><div><span>Valor da di&aacute;ria</span><strong><?= e($moeda($diaria)) ?></strong></div><?php if($cotacao):?><div><span>Valor da hospedagem</span><strong><?= e($moeda($cotacao['valor_hospedagem_centavos'])) ?></strong></div><div><span>Taxa de servi&ccedil;o Alug F&aacute;cil</span><strong><?= e($moeda($cotacao['taxa_plataforma_centavos'])) ?></strong></div><div><span>Taxa de processamento</span><strong><?= e($moeda($cotacao['taxa_gateway_estimada_centavos'])) ?></strong></div><?php endif;?><div class="reservation-total"><span><?= $cotacao?'Total':'Valor l&iacute;quido da hospedagem' ?></span><strong><?= e($moeda((int)$valorTotal)) ?></strong></div></div>
+<p class="reservation-note">Os valores s&atilde;o recalculados e validados pelo servidor.</p><button class="btn btn-book" type="submit" <?= !$meiosPagamento?'disabled':'' ?>><?= $cotacao?'Confirmar reserva':'Calcular total' ?></button></form></div></div></section>

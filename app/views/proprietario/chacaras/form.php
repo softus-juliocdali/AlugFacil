@@ -30,6 +30,7 @@ $tiposLabels = [
         <label>
             Valor da di&aacute;ria
             <input type="number" name="valor_diaria" value="<?= e($value('valor_diaria')) ?>" min="0.01" step="0.01" required>
+            <small>Valor que voc&ecirc; deseja receber por di&aacute;ria. As taxas de servi&ccedil;o e processamento ser&atilde;o adicionadas ao valor pago pelo cliente.</small>
         </label>
 
         <label>

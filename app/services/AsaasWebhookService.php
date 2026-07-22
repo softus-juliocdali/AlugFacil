@@ -43,8 +43,11 @@ final class AsaasWebhookService
         $s=$this->db->prepare('SELECT r.*,p.id AS pagamento_id,p.status_pagamento AS pagamento_registrado,p.valor AS pagamento_valor FROM reservas r LEFT JOIN pagamentos p ON p.reserva_id=r.id AND p.id_transacao_asaas=:payment WHERE r.id_cobranca_asaas=:payment LIMIT 1 FOR UPDATE OF r');$s->execute(['payment'=>$pid]);$reserva=$s->fetch();
         if(!$reserva)return $this->divergencia('Cobranca sem reserva interna correspondente.');
         $external=trim((string)($payment['externalReference']??''));
-        if($external!==''&&$external!=='reserva_'.(int)$reserva['id'])return $this->divergencia('External reference divergente da reserva vinculada.');
-        if(isset($payment['value'])&&abs((float)$payment['value']-(float)$reserva['valor_total'])>0.009)return $this->divergencia('Valor recebido diverge do valor esperado.');
+        if($external!=='reserva_'.(int)$reserva['id'])return $this->divergencia('External reference divergente da reserva vinculada.');
+        try{$recebido=PrecificacaoReservaService::decimalParaCentavos((string)($payment['value']??$payment['totalValue']??''));}catch(Throwable){return $this->divergencia('Valor recebido ausente ou invalido.');}
+        $esperado=$reserva['valor_total_cliente_centavos']!==null?(int)$reserva['valor_total_cliente_centavos']:PrecificacaoReservaService::decimalParaCentavos((string)$reserva['valor_total']);
+        if($recebido!==$esperado)return $this->divergencia('Valor recebido diverge do valor esperado.');
+        $forma=strtoupper((string)($payment['billingType']??''));if(($reserva['forma_pagamento']??null)!==null&&$forma!==(string)$reserva['forma_pagamento'])return $this->divergencia('Forma de pagamento diverge do snapshot.');
         if(in_array($tipo,self::REVERSAO,true)){$this->marcarDivergencia((int)$reserva['id']);return $this->divergencia('Evento financeiro reverso requer conciliacao manual.');}
         if(in_array($tipo,self::CONFIRMACAO,true))return $this->confirmar($reserva,$payment,$tipo);
         $this->salvarPagamento($reserva,$payment,'pendente');
@@ -65,7 +68,7 @@ final class AsaasWebhookService
     private function salvarPagamento(array $r,array $p,string $status):void
     {
         $sql="INSERT INTO pagamentos (reserva_id,usuario_id,valor,forma_pagamento,status_pagamento,id_transacao_asaas,data_pagamento) VALUES (:reserva,:usuario,:valor,:forma,:status,:payment,:data) ON CONFLICT (id_transacao_asaas) DO UPDATE SET status_pagamento=CASE WHEN pagamentos.status_pagamento IN ('pago','estornado') THEN pagamentos.status_pagamento ELSE EXCLUDED.status_pagamento END,data_pagamento=COALESCE(pagamentos.data_pagamento,EXCLUDED.data_pagamento)";
-        $this->db->prepare($sql)->execute(['reserva'=>$r['id'],'usuario'=>$r['usuario_id'],'valor'=>number_format((float)$r['valor_total'],2,'.',''),'forma'=>$this->forma((string)($p['billingType']??'')),'status'=>$status,'payment'=>$p['id'],'data'=>$status==='pago'?($p['paymentDate']??$p['confirmedDate']??date('Y-m-d H:i:s')):null]);
+        $centavos=$r['valor_total_cliente_centavos']!==null?(int)$r['valor_total_cliente_centavos']:PrecificacaoReservaService::decimalParaCentavos((string)$r['valor_total']);$this->db->prepare($sql)->execute(['reserva'=>$r['id'],'usuario'=>$r['usuario_id'],'valor'=>PrecificacaoReservaService::centavosParaDecimal($centavos),'forma'=>$this->forma((string)($p['billingType']??'')),'status'=>$status,'payment'=>$p['id'],'data'=>$status==='pago'?($p['paymentDate']??$p['confirmedDate']??date('Y-m-d H:i:s')):null]);
     }
     private function forma(string $v):string{return match(strtoupper($v)){'PIX'=>'pix','CREDIT_CARD'=>'cartao_credito','BOLETO'=>'boleto',default=>'transferencia'};}
     private function marcarDivergencia(int $id):void{$this->db->prepare('UPDATE reservas SET divergencia_pagamento=TRUE,data_atualizacao=CURRENT_TIMESTAMP WHERE id=:id')->execute(['id'=>$id]);}

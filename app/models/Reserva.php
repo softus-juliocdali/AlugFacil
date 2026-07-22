@@ -139,8 +139,13 @@ final class Reserva extends Model
                             valor_diaria,
                             valor_total,
                             status_reserva,
-                            status_pagamento
-                            ,expira_em
+                            status_pagamento, expira_em,
+                            valor_diaria_liquido_proprietario_centavos, valor_hospedagem_centavos,
+                            valor_liquido_proprietario_centavos, taxa_plataforma_centavos,
+                            taxa_gateway_estimada_centavos, valor_total_cliente_centavos,
+                            plataforma_percentual_bps, plataforma_fixa_centavos, gateway_percentual_bps,
+                            gateway_fixa_centavos, margem_seguranca_bps, forma_pagamento, quantidade_parcelas,
+                            versao_precificacao, origem_precificacao, precificacao_detalhes, precificado_em
                         )
                     VALUES
                         (
@@ -153,8 +158,10 @@ final class Reserva extends Model
                             :valor_diaria,
                             :valor_total,
                             'aguardando_pagamento',
-                            'pendente'
-                            ,CURRENT_TIMESTAMP + (:expiracao_minutos * INTERVAL '1 minute')
+                            'pendente', CURRENT_TIMESTAMP + (:expiracao_minutos * INTERVAL '1 minute'),
+                            :vd_centavos,:hospedagem,:liquido,:plataforma,:gateway,:total_cliente,
+                            :plataforma_bps,:plataforma_fixa,:gateway_bps,:gateway_fixa,:margem_bps,
+                            :forma,:parcelas,:versao,'nova',CAST(:detalhes AS JSONB),CURRENT_TIMESTAMP
                         )
                     RETURNING id
                     SQL
@@ -166,8 +173,15 @@ final class Reserva extends Model
                 'data_inicio' => $dados['data_inicio'],
                 'data_fim' => $dados['data_fim'],
                 'quantidade_diarias' => $dados['quantidade_diarias'],
-                'valor_diaria' => number_format((float) $dados['valor_diaria'], 2, '.', ''),
-                'valor_total' => number_format((float) $dados['valor_total'], 2, '.', ''),
+                'valor_diaria' => $dados['valor_diaria'],
+                'valor_total' => $dados['valor_total'],
+                'vd_centavos'=>$dados['valor_diaria_liquido_proprietario_centavos'],'hospedagem'=>$dados['valor_hospedagem_centavos'],
+                'liquido'=>$dados['valor_liquido_proprietario_centavos'],'plataforma'=>$dados['taxa_plataforma_centavos'],
+                'gateway'=>$dados['taxa_gateway_estimada_centavos'],'total_cliente'=>$dados['valor_total_cliente_centavos'],
+                'plataforma_bps'=>$dados['plataforma_percentual_bps'],'plataforma_fixa'=>$dados['plataforma_fixa_centavos'],
+                'gateway_bps'=>$dados['gateway_percentual_bps'],'gateway_fixa'=>$dados['gateway_fixa_centavos'],
+                'margem_bps'=>$dados['margem_seguranca_bps'],'forma'=>$dados['forma_pagamento'],'parcelas'=>$dados['quantidade_parcelas'],
+                'versao'=>$dados['versao_precificacao'],'detalhes'=>json_encode($dados['precificacao_detalhes'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
                 'expiracao_minutos' => max(5, min(1440, (int) (getenv('RESERVA_EXPIRACAO_MINUTOS') ?: 30))),
             ]);
 
@@ -184,6 +198,20 @@ final class Reserva extends Model
             throw $exception;
         }
     }
+
+    public function criarCotacao(int $usuarioId,int $chacaraId,string $inicio,string $fim,array $detalhes):string
+    {
+        $b=random_bytes(16);$b[6]=chr((ord($b[6])&0x0f)|0x40);$b[8]=chr((ord($b[8])&0x3f)|0x80);$h=bin2hex($b);$id=substr($h,0,8).'-'.substr($h,8,4).'-'.substr($h,12,4).'-'.substr($h,16,4).'-'.substr($h,20);
+        $s=$this->db->prepare("INSERT INTO cotacoes_reserva(id,usuario_id,chacara_id,configuracao_financeira_id,versao_configuracao,data_inicio,data_fim,forma_pagamento,quantidade_parcelas,detalhes,expira_em) VALUES(:id,:u,:c,:cfg,:v,:i,:f,:forma,:p,CAST(:d AS JSONB),CURRENT_TIMESTAMP+INTERVAL '15 minutes')");
+        $s->execute(['id'=>$id,'u'=>$usuarioId,'c'=>$chacaraId,'cfg'=>$detalhes['configuracao_financeira_id'],'v'=>$detalhes['versao_precificacao'],'i'=>$inicio,'f'=>$fim,'forma'=>$detalhes['forma_pagamento'],'p'=>$detalhes['quantidade_parcelas'],'d'=>json_encode($detalhes,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);return$id;
+    }
+
+    public function buscarCotacaoValida(string $id,int $usuarioId,int $chacaraId):array
+    {
+        $s=$this->db->prepare("SELECT q.*,c.versao AS versao_atual FROM cotacoes_reserva q JOIN configuracoes_financeiras c ON c.id=q.configuracao_financeira_id WHERE q.id=:id AND q.usuario_id=:u AND q.chacara_id=:c");$s->execute(['id'=>$id,'u'=>$usuarioId,'c'=>$chacaraId]);$q=$s->fetch();if(!$q||$q['consumida_em']!==null||strtotime($q['expira_em'])<=time())throw new RuntimeException('Cotacao expirada ou invalida.');$vigente=(int)$this->db->query("SELECT COALESCE(MAX(versao),0) FROM configuracoes_financeiras WHERE vigencia_fim IS NULL AND precificacao_ativa")->fetchColumn();if($vigente!==(int)$q['versao_configuracao'])throw new RuntimeException('Os valores foram atualizados. Solicite uma nova cotacao.');$q['detalhes']=is_string($q['detalhes'])?json_decode($q['detalhes'],true,512,JSON_THROW_ON_ERROR):$q['detalhes'];return$q;
+    }
+
+    public function marcarCotacaoConsumida(string $id,int $usuarioId):void{$s=$this->db->prepare('UPDATE cotacoes_reserva SET consumida_em=CURRENT_TIMESTAMP WHERE id=:id AND usuario_id=:u AND consumida_em IS NULL AND expira_em>CURRENT_TIMESTAMP');$s->execute(['id'=>$id,'u'=>$usuarioId]);if($s->rowCount()!==1)throw new RuntimeException('Cotacao ja consumida ou expirada.');}
 
     public function buscarConfirmacao(int $reservaId, int $usuarioId): ?array
     {
@@ -288,7 +316,7 @@ final class Reserva extends Model
 
     public function listarAdministrativas(string $status=''): array
     {
-        $where=$status!==''?'WHERE r.status_reserva=:status':'';$s=$this->db->prepare("SELECT r.id,r.data_inicio,r.data_fim,r.valor_total,r.status_reserva,r.status_pagamento,c.nome AS chacara_nome,u.nome AS cliente_nome,p.nome AS proprietario_nome FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id JOIN proprietarios p ON p.id=r.proprietario_id {$where} ORDER BY r.data_reserva DESC,r.id DESC");$s->execute($status!==''?['status'=>$status]:[]);return $s->fetchAll(PDO::FETCH_ASSOC);
+        $where=$status!==''?'WHERE r.status_reserva=:status':'';$s=$this->db->prepare("SELECT r.id,r.data_inicio,r.data_fim,(r.valor_total_cliente_centavos/100.0) AS valor_total,r.status_reserva,r.status_pagamento,c.nome AS chacara_nome,u.nome AS cliente_nome,p.nome AS proprietario_nome FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id JOIN proprietarios p ON p.id=r.proprietario_id {$where} ORDER BY r.data_reserva DESC,r.id DESC");$s->execute($status!==''?['status'=>$status]:[]);return $s->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function listarPorCliente(int $usuarioId): array
@@ -300,7 +328,7 @@ final class Reserva extends Model
                     r.chacara_id,
                     r.data_inicio,
                     r.data_fim,
-                    r.valor_total,
+                    (r.valor_total_cliente_centavos / 100.0) AS valor_total,
                     r.status_reserva,
                     r.status_pagamento,
                     c.nome AS chacara_nome,
@@ -334,7 +362,7 @@ final class Reserva extends Model
                 SELECT
                     COUNT(*) AS total_reservas,
                     COALESCE(
-                        SUM(valor_total) FILTER (WHERE status_pagamento = 'pago'),
+                        (SUM(valor_liquido_proprietario_centavos) FILTER (WHERE status_pagamento = 'pago')) / 100.0,
                         0
                     ) AS total_faturamento,
                     COUNT(*) FILTER (WHERE status_reserva = 'confirmada') AS total_confirmadas,
@@ -366,10 +394,10 @@ final class Reserva extends Model
             <<<'SQL'
                 SELECT
                     COUNT(*) AS total_reservas,
-                    COALESCE(SUM(valor_total) FILTER (
+                    COALESCE((SUM(valor_total_cliente_centavos) FILTER (
                         WHERE status_pagamento = 'pago'
                            OR status_reserva IN ('pagamento_confirmado', 'confirmada')
-                    ), 0) AS total_faturamento,
+                    )) / 100.0, 0) AS total_faturamento,
                     COUNT(*) FILTER (
                         WHERE status_reserva IN ('solicitada', 'aguardando_pagamento', 'pagamento_confirmado')
                     ) AS total_pendentes,
@@ -396,7 +424,7 @@ final class Reserva extends Model
                     r.id,
                     r.data_inicio,
                     r.data_fim,
-                    r.valor_total,
+                    (r.valor_total_cliente_centavos / 100.0) AS valor_total,
                     r.status_reserva,
                     r.status_pagamento,
                     r.data_reserva,
@@ -425,7 +453,7 @@ final class Reserva extends Model
                     r.id,
                     r.data_inicio,
                     r.data_fim,
-                    r.valor_total,
+                    (r.valor_liquido_proprietario_centavos / 100.0) AS valor_total,
                     r.status_reserva,
                     r.status_pagamento,
                     r.data_reserva,
@@ -460,17 +488,17 @@ final class Reserva extends Model
             <<<'SQL'
                 SELECT
                     COUNT(*) AS total_reservas,
-                    COALESCE(SUM(valor_total) FILTER (
+                    COALESCE((SUM(valor_liquido_proprietario_centavos) FILTER (
                         WHERE status_pagamento = 'pago'
                            OR status_reserva = 'confirmada'
-                    ), 0) AS total_faturado,
-                    COALESCE(SUM(valor_total) FILTER (
+                    )) / 100.0, 0) AS total_faturado,
+                    COALESCE((SUM(valor_liquido_proprietario_centavos) FILTER (
                         WHERE status_reserva IN ('solicitada', 'aguardando_pagamento', 'pagamento_confirmado')
                           AND status_pagamento = 'pendente'
-                    ), 0) AS total_pendente,
-                    COALESCE(SUM(valor_total) FILTER (
+                    )) / 100.0, 0) AS total_pendente,
+                    COALESCE((SUM(valor_liquido_proprietario_centavos) FILTER (
                         WHERE status_reserva NOT IN ('cancelada', 'finalizada')
-                    ), 0) AS estimativa_faturamento
+                    )) / 100.0, 0) AS estimativa_faturamento
                 FROM reservas
                 WHERE proprietario_id = :proprietario_id
                   AND data_inicio BETWEEN :inicio AND :fim
@@ -487,7 +515,7 @@ final class Reserva extends Model
                     r.data_fim,
                     r.quantidade_diarias,
                     r.valor_diaria,
-                    r.valor_total,
+                    (r.valor_liquido_proprietario_centavos / 100.0) AS valor_total,
                     r.status_reserva,
                     r.status_pagamento,
                     r.data_reserva,

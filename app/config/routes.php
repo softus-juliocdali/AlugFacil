@@ -7,6 +7,7 @@ use App\Controllers\AsaasWebhookAdminController;
 use App\Controllers\AuthController;
 use App\Controllers\ChacaraController;
 use App\Controllers\HomeController;
+use App\Controllers\FinanceConfigController;
 use App\Controllers\OwnerAvailabilityController;
 use App\Controllers\OwnerBillingController;
 use App\Controllers\OwnerChacaraController;
@@ -94,6 +95,8 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/asaas-eventos', [AsaasWebhookAdminController::class, 'index']);
     $router->get('/admin/asaas-eventos/{id}', [AsaasWebhookAdminController::class, 'show']);
     $router->post('/admin/asaas-eventos/{id}/acao', [AsaasWebhookAdminController::class, 'action']);
+    $router->get('/admin/configuracoes-financeiras', [FinanceConfigController::class, 'index']);
+    $router->post('/admin/configuracoes-financeiras', [FinanceConfigController::class, 'store']);
 
     if ($config['app_env'] !== 'development') {
         return;

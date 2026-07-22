@@ -49,7 +49,8 @@ final class AsaasHelper
         $this->garantirConfigurado();
 
         $cliente = $this->criarClienteAsaas($dadosReserva['cliente'] ?? []);
-        $valor = round((float) ($dadosReserva['valor_total'] ?? 0), 2);
+        $centavos=(int)($dadosReserva['valor_total_centavos']??0);
+        $valor=\App\Services\PrecificacaoReservaService::centavosParaDecimal($centavos);
 
         if ($valor <= 0) {
             throw new RuntimeException('Valor da cobranca invalido.');
@@ -57,14 +58,17 @@ final class AsaasHelper
 
         $vencimento = (string) ($dadosReserva['data_vencimento'] ?? date('Y-m-d', strtotime('+1 day')));
 
-        return $this->request('POST', '/payments', [
+        $payload=[
             'customer' => $cliente['id'] ?? '',
-            'billingType' => $dadosReserva['billing_type'] ?? 'UNDEFINED',
+            'billingType' => $dadosReserva['billing_type'] ?? '',
             'value' => $valor,
             'dueDate' => $vencimento,
             'description' => $this->descricaoCobranca($dadosReserva),
             'externalReference' => 'reserva_' . (int) ($dadosReserva['id'] ?? 0),
-        ]);
+        ];
+        if($payload['billingType']==='CREDIT_CARD'&&(int)($dadosReserva['quantidade_parcelas']??1)>1){$payload['installmentCount']=(int)$dadosReserva['quantidade_parcelas'];$payload['totalValue']=$valor;unset($payload['value']);}
+        if(!in_array($payload['billingType'],['PIX','CREDIT_CARD'],true))throw new RuntimeException('Forma de pagamento da reserva invalida.');
+        return $this->request('POST','/payments',$payload);
     }
 
     public function consultarCobranca(string $idCobranca): array
