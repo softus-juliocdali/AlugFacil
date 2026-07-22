@@ -13,7 +13,7 @@ $tiposLabels = [
     <div>
         <span>Gestao de chacaras</span>
         <h1><?= $isEdit ? 'Editar ch&aacute;cara' : 'Cadastrar ch&aacute;cara' ?></h1>
-        <p>Preencha os dados principais do im&oacute;vel e defina o status de publica&ccedil;&atilde;o.</p>
+        <p>Preencha os dados principais do im&oacute;vel. A publica&ccedil;&atilde;o depende de aprova&ccedil;&atilde;o administrativa.</p>
     </div>
     <a class="btn btn-outline" href="<?= url('/proprietario/chacaras') ?>">Voltar</a>
 </div>
@@ -84,12 +84,8 @@ $tiposLabels = [
         </div>
 
         <label>
-            Status
-            <select name="status" required>
-                <?php foreach ($statuses as $status): ?>
-                    <option value="<?= e($status) ?>" <?= $value('status', 'pendente') === $status ? 'selected' : '' ?>><?= e(ucfirst($status)) ?></option>
-                <?php endforeach; ?>
-            </select>
+            Status de aprova&ccedil;&atilde;o
+            <input type="text" value="<?= e(ucfirst((string) ($chacara['status_aprovacao'] ?? 'pendente'))) ?>" disabled>
         </label>
 
         <div class="form-actions">

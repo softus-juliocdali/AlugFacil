@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Core\Model;
 use DateTimeImmutable;
 use PDO;
+use Throwable;
 
 final class Chacara extends Model
 {
@@ -19,7 +20,13 @@ final class Chacara extends Model
 
         $statement = $this->db->prepare(
             "SELECT c.* FROM chacaras c
-             WHERE c.id = :id AND c.status = 'disponivel'
+             INNER JOIN proprietarios p ON p.id = c.proprietario_id
+             INNER JOIN usuarios u ON u.id = p.usuario_id
+             WHERE c.id = :id
+               AND c.status_aprovacao = 'aprovada'
+               AND c.status_operacional = 'disponivel'
+               AND p.status = 'ativo'
+               AND u.status = 'ativo'
              LIMIT 1"
         );
         $statement->execute(['id' => $id]);
@@ -106,6 +113,9 @@ final class Chacara extends Model
                     c.latitude,
                     c.longitude,
                     c.status,
+                    c.status_aprovacao,
+                    c.status_operacional,
+                    c.motivo_status,
                     c.foto_principal,
                     c.data_atualizacao,
                     (
@@ -150,10 +160,10 @@ final class Chacara extends Model
             <<<'SQL'
                 INSERT INTO chacaras
                     (proprietario_id, nome, descricao, tipo_imovel, valor_diaria, cidade, regiao,
-                     endereco, latitude, longitude, status)
+                     endereco, latitude, longitude, status, status_aprovacao, status_operacional)
                 VALUES
                     (:proprietario_id, :nome, :descricao, :tipo_imovel, :valor_diaria, :cidade, :regiao,
-                     :endereco, :latitude, :longitude, :status)
+                      :endereco, :latitude, :longitude, 'pendente', 'pendente', 'indisponivel')
                 RETURNING id
                 SQL
         );
@@ -168,7 +178,6 @@ final class Chacara extends Model
             'endereco' => $dados['endereco'],
             'latitude' => $dados['latitude'],
             'longitude' => $dados['longitude'],
-            'status' => $dados['status'],
         ]);
 
         return (int) $statement->fetchColumn();
@@ -189,8 +198,7 @@ final class Chacara extends Model
                     regiao = :regiao,
                     endereco = :endereco,
                     latitude = :latitude,
-                    longitude = :longitude,
-                    status = :status
+                    longitude = :longitude
                 WHERE id = :id AND proprietario_id = :proprietario_id
                 SQL
         );
@@ -206,7 +214,6 @@ final class Chacara extends Model
             'endereco' => $dados['endereco'],
             'latitude' => $dados['latitude'],
             'longitude' => $dados['longitude'],
-            'status' => $dados['status'],
         ]);
 
         return $statement->rowCount() > 0;
@@ -214,10 +221,15 @@ final class Chacara extends Model
 
     public function atualizarStatusDoProprietario(int $id, int $proprietarioId, string $status): bool
     {
+        if (!in_array($status, ['disponivel', 'indisponivel'], true)) {
+            return false;
+        }
         $statement = $this->db->prepare(
             'UPDATE chacaras
-             SET status = :status
-             WHERE id = :id AND proprietario_id = :proprietario_id'
+             SET status_operacional = :status,
+                 status = :status
+             WHERE id = :id AND proprietario_id = :proprietario_id
+               AND status_aprovacao = \'aprovada\''
         );
         $statement->execute([
             'id' => $id,
@@ -660,7 +672,13 @@ final class Chacara extends Model
                     ) AS foto
                 FROM favoritos_chacaras f
                 INNER JOIN chacaras c ON c.id = f.chacara_id
+                INNER JOIN proprietarios p ON p.id = c.proprietario_id
+                INNER JOIN usuarios u ON u.id = p.usuario_id
                 WHERE f.usuario_id = :usuario_id
+                  AND c.status_aprovacao = 'aprovada'
+                  AND c.status_operacional = 'disponivel'
+                  AND p.status = 'ativo'
+                  AND u.status = 'ativo'
                 ORDER BY f.data_cadastro DESC, c.nome ASC
                 SQL
         );
@@ -705,6 +723,10 @@ final class Chacara extends Model
             return false;
         }
 
+        if ($this->buscarPerfil($chacaraId) === null) {
+            return false;
+        }
+
         $statement = $this->db->prepare(
             'INSERT INTO favoritos_chacaras (usuario_id, chacara_id)
              VALUES (:usuario_id, :chacara_id)
@@ -734,7 +756,12 @@ final class Chacara extends Model
     {
         $this->garantirColunaTipoImovel();
 
-        $condicoes = ["c.status = 'disponivel'"];
+        $condicoes = [
+            "c.status_aprovacao = 'aprovada'",
+            "c.status_operacional = 'disponivel'",
+            "p.status = 'ativo'",
+            "u.status = 'ativo'",
+        ];
         $parametros = [];
 
         if (($filtros['valor_min'] ?? null) !== null) {
@@ -835,6 +862,8 @@ final class Chacara extends Model
                         WHERE a.chacara_id = c.id AND a.status = 'ativo'
                     ) AS total_avaliacoes
                 FROM chacaras c
+                INNER JOIN proprietarios p ON p.id = c.proprietario_id
+                INNER JOIN usuarios u ON u.id = p.usuario_id
                 WHERE %s
                 ORDER BY %s
                 SQL,
@@ -852,6 +881,77 @@ final class Chacara extends Model
         $statement->execute();
 
         return $statement->fetchAll();
+    }
+
+    public function listarAdministrativo(string $status = ''): array
+    {
+        $where = $status !== '' ? 'WHERE c.status_aprovacao = :status' : '';
+        $statement = $this->db->prepare(
+            "SELECT c.id, c.nome, c.cidade, c.valor_diaria, c.status_aprovacao,
+                    c.status_operacional, c.motivo_status, p.nome AS proprietario_nome,
+                    p.status AS proprietario_status, u.status AS usuario_status
+             FROM chacaras c INNER JOIN proprietarios p ON p.id = c.proprietario_id
+             INNER JOIN usuarios u ON u.id = p.usuario_id {$where}
+             ORDER BY c.data_cadastro DESC, c.id DESC"
+        );
+        $statement->execute($status !== '' ? ['status' => $status] : []);
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function buscarAdministrativo(int $id): ?array
+    {
+        $statement = $this->db->prepare(
+            'SELECT c.*, p.nome AS proprietario_nome, p.status AS proprietario_status,
+                    u.status AS usuario_status FROM chacaras c
+             INNER JOIN proprietarios p ON p.id = c.proprietario_id
+             INNER JOIN usuarios u ON u.id = p.usuario_id WHERE c.id = :id LIMIT 1'
+        );
+        $statement->execute(['id' => $id]);
+        $chacara = $statement->fetch(PDO::FETCH_ASSOC);
+        return $chacara ?: null;
+    }
+
+    public function atualizarStatusAdministrativo(int $id, string $status, ?string $motivo, int $administradorId): bool
+    {
+        $this->db->beginTransaction();
+        try {
+            $statement = $this->db->prepare(
+                'SELECT c.status_aprovacao, p.status AS proprietario_status, u.status AS usuario_status
+                 FROM chacaras c INNER JOIN proprietarios p ON p.id = c.proprietario_id
+                 INNER JOIN usuarios u ON u.id = p.usuario_id WHERE c.id = :id FOR UPDATE OF c'
+            );
+            $statement->execute(['id' => $id]);
+            $atual = $statement->fetch(PDO::FETCH_ASSOC);
+            $transicoes = ['pendente' => ['aprovada', 'rejeitada'], 'aprovada' => ['bloqueada'],
+                'bloqueada' => ['aprovada', 'pendente'], 'rejeitada' => ['pendente']];
+            if (!$atual || !in_array($status, $transicoes[$atual['status_aprovacao']] ?? [], true)) {
+                $this->db->rollBack();
+                return false;
+            }
+            if ($status === 'aprovada' && ($atual['proprietario_status'] !== 'ativo' || $atual['usuario_status'] !== 'ativo')) {
+                $this->db->rollBack();
+                return false;
+            }
+            $operacional = $status === 'aprovada' ? 'disponivel' : 'indisponivel';
+            $legado = $status === 'aprovada' ? 'disponivel' : ($status === 'bloqueada' ? 'bloqueada' : 'pendente');
+            $this->db->prepare(
+                'UPDATE chacaras SET status_aprovacao = :status, status_operacional = :operacional,
+                 status = :legado, motivo_status = :motivo, status_decidido_em = CURRENT_TIMESTAMP,
+                 status_decidido_por = :administrador_id WHERE id = :id'
+            )->execute(['id' => $id, 'status' => $status, 'operacional' => $operacional,
+                'legado' => $legado, 'motivo' => $motivo ?: null, 'administrador_id' => $administradorId]);
+            $this->db->prepare(
+                'INSERT INTO historico_status_chacaras
+                 (chacara_id, status_anterior, status_novo, motivo, administrador_id)
+                 VALUES (:id, :anterior, :novo, :motivo, :administrador_id)'
+            )->execute(['id' => $id, 'anterior' => $atual['status_aprovacao'], 'novo' => $status,
+                'motivo' => $motivo ?: null, 'administrador_id' => $administradorId]);
+            $this->db->commit();
+            return true;
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
     }
 
     private function garantirTabelaFavoritos(): void

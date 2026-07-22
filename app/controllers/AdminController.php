@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\User;
+use App\Models\Chacara;
 use Throwable;
 
 final class AdminController extends Controller
@@ -249,7 +250,7 @@ final class AdminController extends Controller
         $proprietarioId = $this->validarId($id);
         $status = (string) ($_POST['status'] ?? '');
 
-        if (!in_array($status, ['ativo', 'bloqueado'], true)) {
+        if (!in_array($status, ['pendente', 'ativo', 'rejeitado', 'bloqueado'], true)) {
             flash('error', 'Status de proprietario invalido.');
             $this->redirect('/admin/proprietarios');
         }
@@ -268,7 +269,12 @@ final class AdminController extends Controller
         }
 
         try {
-            $atualizado = $model->atualizarStatusProprietarioAdministrativo($proprietarioId, $status);
+            $atualizado = $model->atualizarStatusProprietarioAdministrativo(
+                $proprietarioId,
+                $status,
+                trim((string) ($_POST['motivo'] ?? '')),
+                (int) Auth::user()['id']
+            );
         } catch (Throwable) {
             flash('error', 'Nao foi possivel atualizar o status do proprietario.');
             $this->redirect('/admin/proprietarios/' . $proprietarioId);
@@ -276,8 +282,64 @@ final class AdminController extends Controller
 
         flash($atualizado ? 'success' : 'error', $atualizado
             ? 'Status do proprietario atualizado com sucesso.'
-            : 'Proprietario nao encontrado.');
+            : 'Transicao de status invalida ou proprietario nao encontrado.');
         $this->redirect('/admin/proprietarios/' . $proprietarioId);
+    }
+
+    public function chacaras(): void
+    {
+        Auth::requireRole('admin');
+        $status = trim((string) ($_GET['status'] ?? ''));
+        $this->view('admin/chacaras/index', [
+            'title' => 'Imoveis',
+            'panelRole' => 'admin',
+            'status' => $status,
+            'chacaras' => (new Chacara())->listarAdministrativo($status),
+        ], 'panel');
+    }
+
+    public function chacaraDetalhes(string $id): void
+    {
+        Auth::requireRole('admin');
+        $chacaraId = $this->validarId($id);
+        $model = new Chacara();
+        $chacara = $model->buscarAdministrativo($chacaraId);
+        if ($chacara === null) {
+            $this->notFound();
+        }
+        $this->view('admin/chacaras/show', [
+            'title' => 'Detalhes do imovel',
+            'panelRole' => 'admin',
+            'chacara' => $chacara,
+            'fotos' => $model->buscarFotosGerenciamento($chacaraId),
+        ], 'panel');
+    }
+
+    public function atualizarStatusChacara(string $id): void
+    {
+        Auth::requireRole('admin');
+        verify_csrf();
+        $chacaraId = $this->validarId($id);
+        $status = (string) ($_POST['status'] ?? '');
+        $motivo = trim((string) ($_POST['motivo'] ?? ''));
+        if (!in_array($status, ['pendente', 'aprovada', 'rejeitada', 'bloqueada'], true)) {
+            flash('error', 'Status de aprovacao invalido.');
+            $this->redirect('/admin/chacaras/' . $chacaraId);
+        }
+        try {
+            $atualizado = (new Chacara())->atualizarStatusAdministrativo(
+                $chacaraId,
+                $status,
+                $motivo,
+                (int) Auth::user()['id']
+            );
+            flash($atualizado ? 'success' : 'error', $atualizado
+                ? 'Status do imovel atualizado.'
+                : 'Transicao invalida ou proprietario sem aprovacao para publicar.');
+        } catch (Throwable) {
+            flash('error', 'Nao foi possivel atualizar o status do imovel.');
+        }
+        $this->redirect('/admin/chacaras/' . $chacaraId);
     }
 
     public function usuarios(): void

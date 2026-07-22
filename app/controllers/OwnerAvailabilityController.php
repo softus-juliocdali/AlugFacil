@@ -7,7 +7,6 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\Chacara;
-use App\Models\User;
 use DateInterval;
 use DateTimeImmutable;
 use Throwable;
@@ -114,14 +113,7 @@ final class OwnerAvailabilityController extends Controller
 
     private function proprietarioId(): int
     {
-        Auth::requireRole('proprietario');
-        $proprietario = (new User())->findOwnerByUserId((int) Auth::user()['id']);
-
-        if ($proprietario === null) {
-            flash('error', 'Nao foi possivel localizar seu cadastro de proprietario.');
-            $this->redirect('/login');
-        }
-
+        $proprietario = Auth::requireProprietarioOperacional();
         return (int) $proprietario['id'];
     }
 

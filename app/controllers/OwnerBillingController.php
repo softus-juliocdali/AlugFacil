@@ -7,7 +7,6 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\Reserva;
-use App\Models\User;
 use DateTimeImmutable;
 
 final class OwnerBillingController extends Controller
@@ -34,14 +33,7 @@ final class OwnerBillingController extends Controller
 
     private function proprietarioId(): int
     {
-        Auth::requireRole('proprietario');
-        $proprietario = (new User())->findOwnerByUserId((int) Auth::user()['id']);
-
-        if ($proprietario === null) {
-            flash('error', 'Nao foi possivel localizar seu cadastro de proprietario.');
-            $this->redirect('/login');
-        }
-
+        $proprietario = Auth::requireProprietarioOperacional();
         return (int) $proprietario['id'];
     }
 

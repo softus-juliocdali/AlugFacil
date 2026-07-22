@@ -237,15 +237,7 @@ final class PanelController extends Controller
 
     public function proprietario(): void
     {
-        Auth::requireRole('proprietario');
-
-        $usuarioId = (int) Auth::user()['id'];
-        $proprietario = (new User())->findOwnerByUserId($usuarioId);
-
-        if ($proprietario === null) {
-            flash('error', 'Nao foi possivel localizar seu cadastro de proprietario.');
-            $this->redirect('/login');
-        }
+        $proprietario = Auth::requireProprietarioOperacional();
 
         $proprietarioId = (int) $proprietario['id'];
         $reservaModel = new Reserva();
@@ -264,6 +256,19 @@ final class PanelController extends Controller
             'disponibilidades' => $this->corrigirCodificacaoLista(
                 $chacaraModel->listarDisponibilidadeResumoPorProprietario($proprietarioId, 8)
             ),
+        ], 'panel');
+    }
+
+    public function statusProprietario(): void
+    {
+        $proprietario = Auth::requireProprietarioAutenticado();
+        if ($proprietario['status'] === 'ativo' && $proprietario['usuario_status'] === 'ativo') {
+            $this->redirect('/proprietario/dashboard');
+        }
+        $this->view('proprietario/status', [
+            'title' => 'Status do cadastro',
+            'panelRole' => 'proprietario',
+            'proprietario' => $this->corrigirCodificacao($proprietario),
         ], 'panel');
     }
 

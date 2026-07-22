@@ -45,6 +45,7 @@ return static function (Router $router, array $config): void {
 
     $router->get('/proprietario', [PanelController::class, 'proprietario']);
     $router->get('/proprietario/dashboard', [PanelController::class, 'proprietario']);
+    $router->get('/proprietario/status', [PanelController::class, 'statusProprietario']);
     $router->get('/proprietario/dados-cadastrais', [PanelController::class, 'dadosCadastraisProprietario']);
     $router->post('/proprietario/dados-cadastrais', [PanelController::class, 'atualizarDadosCadastraisProprietario']);
     $router->get('/proprietario/chacaras', [OwnerChacaraController::class, 'index']);
@@ -52,6 +53,7 @@ return static function (Router $router, array $config): void {
     $router->post('/proprietario/chacaras/criar', [OwnerChacaraController::class, 'store']);
     $router->get('/proprietario/chacaras/editar/{id}', [OwnerChacaraController::class, 'edit']);
     $router->post('/proprietario/chacaras/editar/{id}', [OwnerChacaraController::class, 'update']);
+    $router->post('/proprietario/chacaras/status/{id}', [OwnerChacaraController::class, 'updateStatus']);
     $router->get('/proprietario/chacaras/excluir/{id}', [OwnerChacaraController::class, 'delete']);
     $router->post('/proprietario/chacaras/excluir/{id}', [OwnerChacaraController::class, 'destroy']);
     $router->get('/proprietario/chacaras/fotos/{id}', [OwnerChacaraController::class, 'photos']);
@@ -73,6 +75,9 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/proprietarios', [AdminController::class, 'proprietarios']);
     $router->get('/admin/proprietarios/{id}', [AdminController::class, 'proprietarioDetalhes']);
     $router->post('/admin/proprietarios/{id}/status', [AdminController::class, 'atualizarStatusProprietario']);
+    $router->get('/admin/chacaras', [AdminController::class, 'chacaras']);
+    $router->get('/admin/chacaras/{id}', [AdminController::class, 'chacaraDetalhes']);
+    $router->post('/admin/chacaras/{id}/status', [AdminController::class, 'atualizarStatusChacara']);
     $router->get('/admin/usuarios', [AdminController::class, 'usuarios']);
     $router->get('/admin/usuarios/{id}', [AdminController::class, 'usuarioDetalhes']);
     $router->post('/admin/usuarios/{id}/status', [AdminController::class, 'atualizarStatusUsuario']);

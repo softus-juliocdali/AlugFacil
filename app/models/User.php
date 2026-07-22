@@ -85,6 +85,9 @@ final class User extends Model
                     p.telefone,
                     p.email,
                     p.status,
+                    p.motivo_status,
+                    p.status_decidido_em,
+                    p.status_decidido_por,
                     p.data_cadastro,
                     COUNT(c.id) AS total_chacaras
                 FROM proprietarios p
@@ -111,6 +114,9 @@ final class User extends Model
                     p.email,
                     p.cpf,
                     p.status,
+                    p.motivo_status,
+                    p.status_decidido_em,
+                    p.status_decidido_por,
                     p.data_cadastro,
                     p.data_atualizacao,
                     u.status AS usuario_status,
@@ -140,6 +146,8 @@ final class User extends Model
                     c.regiao,
                     c.valor_diaria,
                     c.status,
+                    c.status_aprovacao,
+                    c.status_operacional,
                     c.data_cadastro,
                     COUNT(r.id) AS total_reservas
                 FROM chacaras c
@@ -154,34 +162,62 @@ final class User extends Model
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function atualizarStatusProprietarioAdministrativo(int $proprietarioId, string $status): bool
+    public function atualizarStatusProprietarioAdministrativo(int $proprietarioId, string $status, ?string $motivo, int $administradorId): bool
     {
         $this->db->beginTransaction();
 
         try {
             $statement = $this->db->prepare(
-                'SELECT usuario_id FROM proprietarios WHERE id = :id LIMIT 1'
+                'SELECT usuario_id, status FROM proprietarios WHERE id = :id FOR UPDATE'
             );
             $statement->execute(['id' => $proprietarioId]);
-            $usuarioId = $statement->fetchColumn();
+            $atual = $statement->fetch(PDO::FETCH_ASSOC);
 
-            if ($usuarioId === false) {
+            if (!$atual) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            $transicoes = [
+                'pendente' => ['ativo', 'rejeitado'],
+                'ativo' => ['bloqueado'],
+                'bloqueado' => ['ativo'],
+                'rejeitado' => ['pendente'],
+            ];
+            if (!in_array($status, $transicoes[$atual['status']] ?? [], true)) {
                 $this->db->rollBack();
                 return false;
             }
 
             $this->db->prepare(
-                'UPDATE proprietarios SET status = :status WHERE id = :id'
+                'UPDATE proprietarios
+                 SET status = :status, motivo_status = :motivo,
+                     status_decidido_em = CURRENT_TIMESTAMP, status_decidido_por = :administrador_id
+                 WHERE id = :id'
             )->execute([
                 'id' => $proprietarioId,
                 'status' => $status,
+                'motivo' => $motivo ?: null,
+                'administrador_id' => $administradorId,
             ]);
 
             $this->db->prepare(
                 'UPDATE usuarios SET status = :status WHERE id = :id AND tipo_usuario = \'proprietario\''
             )->execute([
-                'id' => (int) $usuarioId,
-                'status' => $status === 'ativo' ? 'ativo' : 'bloqueado',
+                'id' => (int) $atual['usuario_id'],
+                'status' => in_array($status, ['ativo', 'pendente', 'rejeitado'], true) ? 'ativo' : 'bloqueado',
+            ]);
+
+            $this->db->prepare(
+                'INSERT INTO historico_status_proprietarios
+                    (proprietario_id, status_anterior, status_novo, motivo, administrador_id)
+                 VALUES (:id, :anterior, :novo, :motivo, :administrador_id)'
+            )->execute([
+                'id' => $proprietarioId,
+                'anterior' => $atual['status'],
+                'novo' => $status,
+                'motivo' => $motivo ?: null,
+                'administrador_id' => $administradorId,
             ]);
 
             $this->db->commit();

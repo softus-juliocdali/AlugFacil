@@ -36,8 +36,13 @@ final class Reserva extends Model
                         c.foto_principal
                     ) AS foto
                 FROM chacaras c
+                INNER JOIN proprietarios p ON p.id = c.proprietario_id
+                INNER JOIN usuarios pu ON pu.id = p.usuario_id
                 WHERE c.id = :id
-                  AND c.status = 'disponivel'
+                  AND c.status_aprovacao = 'aprovada'
+                  AND c.status_operacional = 'disponivel'
+                  AND p.status = 'ativo'
+                  AND pu.status = 'ativo'
                 LIMIT 1
                 SQL
         );
@@ -104,6 +109,10 @@ final class Reserva extends Model
 
         try {
             $this->bloquearCriacaoConcorrente((int) $dados['chacara_id']);
+
+            if ($this->buscarChacaraParaReserva((int) $dados['chacara_id']) === null) {
+                throw new RuntimeException('Imovel ou proprietario sem autorizacao para reserva.');
+            }
 
             if (
                 $this->existeIndisponibilidade((int) $dados['chacara_id'], (string) $dados['data_inicio'], (string) $dados['data_fim'])

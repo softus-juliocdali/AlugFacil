@@ -51,23 +51,18 @@ $formatarStatus = static fn (string $status): string => ucfirst(str_replace('_',
                             <td><?= e($chacara['cidade']) ?></td>
                             <td>R$ <?= e(number_format((float) $chacara['valor_diaria'], 2, ',', '.')) ?></td>
                             <td>
-                                <form class="inline-status-form" method="post" action="<?= url('/proprietario/chacaras/editar/' . (int) $chacara['id']) ?>">
+                                <?php if ($chacara['status_aprovacao'] === 'aprovada'): ?>
+                                <form class="inline-status-form" method="post" action="<?= url('/proprietario/chacaras/status/' . (int) $chacara['id']) ?>">
                                     <?= csrf_field() ?>
-                                    <input type="hidden" name="nome" value="<?= e($chacara['nome']) ?>">
-                                    <input type="hidden" name="descricao" value="<?= e($chacara['descricao'] ?? '') ?>">
-                                    <input type="hidden" name="tipo_imovel" value="<?= e($chacara['tipo_imovel'] ?? 'chacara') ?>">
-                                    <input type="hidden" name="valor_diaria" value="<?= e((string) $chacara['valor_diaria']) ?>">
-                                    <input type="hidden" name="cidade" value="<?= e($chacara['cidade']) ?>">
-                                    <input type="hidden" name="regiao" value="<?= e($chacara['regiao'] ?? '') ?>">
-                                    <input type="hidden" name="endereco" value="<?= e($chacara['endereco'] ?? '') ?>">
-                                    <input type="hidden" name="latitude" value="<?= e((string) ($chacara['latitude'] ?? '')) ?>">
-                                    <input type="hidden" name="longitude" value="<?= e((string) ($chacara['longitude'] ?? '')) ?>">
                                     <select name="status" onchange="this.form.submit()" aria-label="Alterar status">
                                         <?php foreach ($statuses as $status): ?>
-                                            <option value="<?= e($status) ?>" <?= $chacara['status'] === $status ? 'selected' : '' ?>><?= e($formatarStatus($status)) ?></option>
+                                            <option value="<?= e($status) ?>" <?= $chacara['status_operacional'] === $status ? 'selected' : '' ?>><?= e($formatarStatus($status)) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </form>
+                                <?php else: ?>
+                                    <span class="status-pill"><?= e($formatarStatus($chacara['status_aprovacao'])) ?></span>
+                                <?php endif; ?>
                             </td>
                             <td><?= e((string) (int) $chacara['total_fotos']) ?></td>
                             <td>

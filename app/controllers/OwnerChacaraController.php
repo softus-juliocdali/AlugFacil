@@ -8,13 +8,12 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Helpers\GoogleMapsHelper;
 use App\Models\Chacara;
-use App\Models\User;
 use RuntimeException;
 use Throwable;
 
 final class OwnerChacaraController extends Controller
 {
-    private const STATUSES = ['disponivel', 'indisponivel', 'pendente', 'bloqueada'];
+    private const STATUSES = ['disponivel', 'indisponivel'];
     private const TIPOS_IMOVEL = ['chacara', 'sitio', 'area_lazer'];
     private const MAX_UPLOAD_BYTES = 5242880;
     private const UPLOAD_RELATIVE_DIR = 'uploads/chacaras';
@@ -59,7 +58,7 @@ final class OwnerChacaraController extends Controller
         try {
             $id = (new Chacara())->criarParaProprietario($proprietarioId, $dados);
             clear_old();
-            flash('success', 'Chacara cadastrada com sucesso. Agora voce pode enviar fotos.');
+            flash('success', 'Chacara cadastrada e enviada para aprovacao. Agora voce pode enviar fotos.');
             $this->redirect('/proprietario/chacaras/fotos/' . $id);
         } catch (Throwable) {
             flash('error', 'Nao foi possivel cadastrar a chacara agora.');
@@ -102,6 +101,27 @@ final class OwnerChacaraController extends Controller
             flash('error', 'Nao foi possivel atualizar a chacara agora.');
             $this->redirect($redirect);
         }
+    }
+
+    public function updateStatus(string $id): void
+    {
+        $proprietarioId = $this->proprietarioId();
+        verify_csrf();
+        $chacara = $this->buscarChacaraAutorizada($id, $proprietarioId);
+        $status = (string) ($_POST['status'] ?? '');
+
+        if (!in_array($status, self::STATUSES, true)) {
+            flash('error', 'Status operacional invalido.');
+            $this->redirect('/proprietario/chacaras');
+        }
+        if ($chacara['status_aprovacao'] !== 'aprovada') {
+            flash('error', 'A disponibilidade so pode ser alterada depois da aprovacao administrativa.');
+            $this->redirect('/proprietario/chacaras');
+        }
+
+        $atualizado = (new Chacara())->atualizarStatusDoProprietario((int) $chacara['id'], $proprietarioId, $status);
+        flash($atualizado ? 'success' : 'error', $atualizado ? 'Disponibilidade atualizada.' : 'Nao foi possivel atualizar a disponibilidade.');
+        $this->redirect('/proprietario/chacaras');
     }
 
     public function delete(string $id): void
@@ -191,14 +211,7 @@ final class OwnerChacaraController extends Controller
 
     private function proprietarioId(): int
     {
-        Auth::requireRole('proprietario');
-        $proprietario = (new User())->findOwnerByUserId((int) Auth::user()['id']);
-
-        if ($proprietario === null) {
-            flash('error', 'Nao foi possivel localizar seu cadastro de proprietario.');
-            $this->redirect('/login');
-        }
-
+        $proprietario = Auth::requireProprietarioOperacional();
         return (int) $proprietario['id'];
     }
 
@@ -228,7 +241,6 @@ final class OwnerChacaraController extends Controller
             'endereco' => trim((string) ($_POST['endereco'] ?? '')),
             'latitude' => trim((string) ($_POST['latitude'] ?? '')),
             'longitude' => trim((string) ($_POST['longitude'] ?? '')),
-            'status' => trim((string) ($_POST['status'] ?? 'pendente')),
         ];
 
         set_old($dados);
@@ -253,11 +265,6 @@ final class OwnerChacaraController extends Controller
             $this->redirect($redirect);
         }
 
-        if (!in_array($dados['status'], self::STATUSES, true)) {
-            flash('error', 'Status invalido.');
-            $this->redirect($redirect);
-        }
-
         $latitude = $this->normalizarCoordenada($dados['latitude'], -90, 90, 'latitude', $redirect);
         $longitude = $this->normalizarCoordenada($dados['longitude'], -180, 180, 'longitude', $redirect);
 
@@ -271,7 +278,6 @@ final class OwnerChacaraController extends Controller
             'endereco' => $dados['endereco'],
             'latitude' => $latitude,
             'longitude' => $longitude,
-            'status' => $dados['status'],
         ];
     }
 

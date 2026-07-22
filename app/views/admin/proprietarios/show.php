@@ -9,7 +9,12 @@ $formatarCpf = static function (?string $cpf): string {
     }
     return substr($digitos, 0, 3) . '.' . substr($digitos, 3, 3) . '.' . substr($digitos, 6, 3) . '-' . substr($digitos, 9, 2);
 };
-$novoStatus = $proprietario['status'] === 'bloqueado' ? 'ativo' : 'bloqueado';
+$transicoes = [
+    'pendente' => ['ativo' => 'Aprovar', 'rejeitado' => 'Rejeitar'],
+    'ativo' => ['bloqueado' => 'Bloquear'],
+    'bloqueado' => ['ativo' => 'Reativar'],
+    'rejeitado' => ['pendente' => 'Reabrir analise'],
+];
 ?>
 <div class="panel-page-heading">
     <div>
@@ -38,10 +43,10 @@ $novoStatus = $proprietario['status'] === 'bloqueado' ? 'ativo' : 'bloqueado';
         </dl>
         <form class="admin-status-action" method="post" action="<?= url('/admin/proprietarios/' . (int) $proprietario['id'] . '/status') ?>">
             <?= csrf_field() ?>
-            <input type="hidden" name="status" value="<?= e($novoStatus) ?>">
-            <button class="btn <?= $novoStatus === 'bloqueado' ? 'btn-danger' : 'btn-primary' ?>" type="submit">
-                <?= $novoStatus === 'bloqueado' ? 'Bloquear proprietario' : 'Ativar proprietario' ?>
-            </button>
+            <label>Motivo <input type="text" name="motivo" value="<?= e($proprietario['motivo_status'] ?? '') ?>"></label>
+            <?php foreach ($transicoes[$proprietario['status']] ?? [] as $status => $rotulo): ?>
+                <button class="btn <?= in_array($status, ['bloqueado', 'rejeitado'], true) ? 'btn-danger' : 'btn-primary' ?>" type="submit" name="status" value="<?= e($status) ?>"><?= e($rotulo) ?></button>
+            <?php endforeach; ?>
         </form>
     </article>
 

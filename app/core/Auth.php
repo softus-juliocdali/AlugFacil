@@ -75,11 +75,62 @@ final class Auth
         }
     }
 
+    public static function requireProprietarioAutenticado(): array
+    {
+        self::requireRole('proprietario');
+
+        $statement = Database::getConnection()->prepare(
+            <<<'SQL'
+                SELECT p.*, u.status AS usuario_status
+                FROM proprietarios p
+                INNER JOIN usuarios u ON u.id = p.usuario_id
+                WHERE p.usuario_id = :usuario_id
+                LIMIT 1
+                SQL
+        );
+        $statement->execute(['usuario_id' => (int) self::user()['id']]);
+        $proprietario = $statement->fetch();
+
+        if (!$proprietario) {
+            self::logout();
+            flash('error', 'Nao foi possivel localizar seu cadastro de proprietario.');
+            header('Location: ' . url('/login'));
+            exit;
+        }
+
+        return $proprietario;
+    }
+
+    public static function requireProprietarioOperacional(bool $json = false): array
+    {
+        $proprietario = self::requireProprietarioAutenticado();
+
+        if ($proprietario['status'] === 'ativo' && $proprietario['usuario_status'] === 'ativo') {
+            return $proprietario;
+        }
+
+        if ($json) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['error' => 'Cadastro de proprietario sem acesso operacional.']);
+            exit;
+        }
+
+        $mensagem = match ($proprietario['status']) {
+            'pendente' => 'Seu cadastro esta em analise. As funcoes operacionais serao liberadas apos a aprovacao.',
+            'rejeitado' => 'Seu cadastro foi rejeitado. Consulte seus dados cadastrais e o motivo informado.',
+            default => 'Seu cadastro de proprietario esta bloqueado para operacoes.',
+        };
+        flash('error', $mensagem);
+        header('Location: ' . url('/proprietario/status'));
+        exit;
+    }
+
     public static function redirectPath(?string $role = null): string
     {
         return match ($role ?? (self::user()['role'] ?? null)) {
             'cliente' => '/cliente/historico',
-            'proprietario' => '/proprietario/dashboard',
+            'proprietario' => '/proprietario/status',
             'admin' => '/admin/dashboard',
             default => '/login',
         };
