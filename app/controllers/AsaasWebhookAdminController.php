@@ -1,0 +1,12 @@
+<?php
+declare(strict_types=1);
+namespace App\Controllers;
+use App\Core\Auth;use App\Core\Controller;use App\Models\AsaasWebhookEvento;
+final class AsaasWebhookAdminController extends Controller
+{
+ public function index():void{Auth::requireRole('admin');$f=['status'=>$this->q('status',20),'tipo'=>$this->q('tipo',120),'payment'=>$this->q('payment',120),'data'=>$this->data()];$this->view('admin/asaas_eventos/index',['title'=>'Eventos Asaas','panelRole'=>'admin','eventos'=>(new AsaasWebhookEvento())->listar($f),'filtros'=>$f],'panel');}
+ public function show(string $id):void{Auth::requireRole('admin');$e=(new AsaasWebhookEvento())->detalhar($this->id($id));if(!$e){http_response_code(404);$this->view('public/404',['title'=>'Evento nao encontrado']);return;}$payload=is_string($e['payload'])?json_decode($e['payload'],true):$e['payload'];$e['payload_seguro']=json_encode($this->redact(is_array($payload)?$payload:[]),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$this->view('admin/asaas_eventos/show',['title'=>'Evento Asaas','panelRole'=>'admin','evento'=>$e],'panel');}
+ public function action(string $id):void{Auth::requireRole('admin');verify_csrf();$motivo=mb_substr(trim((string)($_POST['motivo']??'')),0,500);if($motivo===''){flash('error','Informe o motivo da acao manual.');$this->redirect('/admin/asaas-eventos/'.$this->id($id));}$m=new AsaasWebhookEvento();$ok=($_POST['acao']??'')==='reprocessar'?$m->solicitarReprocessamento($this->id($id),(int)Auth::user()['id'],$motivo):$m->marcarRevisao($this->id($id),(int)Auth::user()['id'],$motivo);app_log('Acao administrativa em webhook Asaas. evento_interno='.$this->id($id).' admin='.(int)Auth::user()['id']);flash($ok?'success':'error',$ok?'Acao registrada.':'Evento nao permite esta acao.');$this->redirect('/admin/asaas-eventos/'.$this->id($id));}
+ private function redact(array $v):array{$blocked=['creditcard','card','cardnumber','cvv','access_token','asaas-access-token','password','senha'];foreach($v as$k=>$x){$key=strtolower((string)$k);if(in_array($key,$blocked,true)||str_contains($key,'card')){$v[$k]='[REDACTED]';}elseif(is_array($x))$v[$k]=$this->redact($x);}return$v;}
+ private function q(string $k,int $max):string{return mb_substr(trim((string)($_GET[$k]??'')),0,$max);}private function data():string{$v=$this->q('data',10);return preg_match('/^\d{4}-\d{2}-\d{2}$/',$v)?$v:'';}private function id(string $v):int{$id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false){http_response_code(404);exit;}return(int)$id;}
+}

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\AdminController;
+use App\Controllers\AsaasWebhookAdminController;
 use App\Controllers\AuthController;
 use App\Controllers\ChacaraController;
 use App\Controllers\HomeController;
@@ -90,6 +91,9 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/reservas', [ReservaLifecycleController::class, 'adminIndex']);
     $router->get('/admin/reservas/{id}', [ReservaLifecycleController::class, 'adminDetalhe']);
     $router->post('/admin/reservas/{id}/transicao', [ReservaLifecycleController::class, 'adminTransicao']);
+    $router->get('/admin/asaas-eventos', [AsaasWebhookAdminController::class, 'index']);
+    $router->get('/admin/asaas-eventos/{id}', [AsaasWebhookAdminController::class, 'show']);
+    $router->post('/admin/asaas-eventos/{id}/acao', [AsaasWebhookAdminController::class, 'action']);
 
     if ($config['app_env'] !== 'development') {
         return;

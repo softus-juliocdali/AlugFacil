@@ -8,6 +8,7 @@ use App\Core\Database;
 use RuntimeException;
 use Throwable;
 use App\Services\ReservaStatusService;
+use App\Models\AsaasWebhookEvento;
 
 final class AsaasHelper
 {
@@ -77,6 +78,7 @@ final class AsaasHelper
     {
         $cobranca = $this->consultarCobranca($idCobranca);
         $payload = [
+            'id' => 'reconcile_' . hash('sha256', $idCobranca . '|' . (string) ($cobranca['status'] ?? '')),
             'event' => 'PAYMENT_' . (string) ($cobranca['status'] ?? 'UPDATED'),
             'payment' => $cobranca,
         ];
@@ -86,80 +88,9 @@ final class AsaasHelper
 
     public function tratarWebhook(array $payload): ?array
     {
-        $evento = (string) ($payload['event'] ?? '');
-        $pagamento = is_array($payload['payment'] ?? null) ? $payload['payment'] : [];
-        $idCobranca = (string) ($pagamento['id'] ?? '');
-
-        if ($idCobranca === '') {
-            $this->registrarLog('Webhook sem payment.id.', $payload);
-            return null;
-        }
-
-        $status = $this->mapearStatus($evento, (string) ($pagamento['status'] ?? ''));
-        if (!($status['reconhecido'] ?? false)) {
-            $this->registrarLog('Evento Asaas desconhecido ignorado.', ['event' => $evento]);
-            return null;
-        }
-        $statusPagamento = $status['pagamento'];
-        $statusReserva = $status['reserva'];
-
-        $db = Database::getConnection();
-        $db->beginTransaction();
-
-        try {
-            $statement = $db->prepare(
-                'SELECT id, usuario_id, valor_total, status_reserva, status_pagamento FROM reservas WHERE id_cobranca_asaas = :id_cobranca LIMIT 1 FOR UPDATE'
-            );
-            $statement->execute(['id_cobranca' => $idCobranca]);
-            $reserva = $statement->fetch();
-
-            if (!$reserva) {
-                $db->commit();
-                $this->registrarLog('Reserva nao encontrada para cobranca Asaas.', [
-                    'id_cobranca_asaas' => $idCobranca,
-                    'event' => $evento,
-                ]);
-                return null;
-            }
-
-            $tardio = $statusPagamento === 'pago' && in_array($reserva['status_reserva'], ['expirada','cancelada','finalizada','estornada'], true);
-            $updates = [$reserva['status_pagamento'] === 'pago' ? "status_pagamento = 'pago'" : 'status_pagamento = :status_pagamento'];
-            $params = [
-                'id' => (int) $reserva['id'],
-                'status_pagamento' => $statusPagamento,
-            ];
-            if ($reserva['status_pagamento'] === 'pago') unset($params['status_pagamento']);
-
-            if ($tardio) {
-                $updates[] = 'divergencia_pagamento = TRUE';
-                $this->registrarLog('Pagamento recebido para reserva em estado final.', ['event'=>$evento]);
-            } elseif ($statusReserva !== null && ReservaStatusService::podeTransicionar((string)$reserva['status_reserva'], $statusReserva)) {
-                (new ReservaStatusService($db))->transicionar((int)$reserva['id'], $statusReserva, ['motivo'=>'Evento de pagamento Asaas','origem'=>'webhook','responsavel_tipo'=>'webhook']);
-            }
-
-            $db->prepare(
-                'UPDATE reservas SET ' . implode(', ', $updates) . ' WHERE id = :id'
-            )->execute($params);
-
-            $this->registrarPagamento($reserva, $pagamento, $statusPagamento);
-
-            $db->commit();
-
-            return [
-                'reserva_id' => (int) $reserva['id'],
-                'id_cobranca_asaas' => $idCobranca,
-                'evento' => $evento,
-                'status_pagamento' => $statusPagamento,
-                'status_reserva' => $statusReserva,
-            ];
-        } catch (Throwable $exception) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
-            }
-
-            $this->registrarLog('Erro ao tratar webhook Asaas: ' . $exception->getMessage(), $payload);
-            throw $exception;
-        }
+        if (trim((string)($payload['id']??''))==='' || trim((string)($payload['event']??''))==='') throw new RuntimeException('Evento Asaas sem identificadores obrigatorios.');
+        $json=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        return (new AsaasWebhookEvento())->receber($payload,$json);
     }
 
     public function configurado(): bool

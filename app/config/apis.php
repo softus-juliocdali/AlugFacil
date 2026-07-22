@@ -27,6 +27,8 @@ return [
         'api_key' => ASAAS_API_KEY,
         'base_url' => rtrim(ASAAS_BASE_URL, '/'),
         'webhook_token' => ASAAS_WEBHOOK_TOKEN,
+        'webhook_max_body_bytes' => max(1024, (int) (getenv('ASAAS_WEBHOOK_MAX_BODY_BYTES') ?: 1048576)),
+        'webhook_process_limit' => max(1, min(500, (int) (getenv('ASAAS_WEBHOOK_PROCESS_LIMIT') ?: 50))),
     ],
     'payment' => [
         'provider' => getenv('PAYMENT_PROVIDER') ?: '',
