@@ -44,6 +44,22 @@ function config(string $key, mixed $default = null): mixed
     return $config[$key] ?? $default;
 }
 
+function app_log(string $message): void
+{
+    $directory = APP_ROOT . '/storage/logs';
+    if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {
+        return;
+    }
+
+    $secrets = array_filter([
+        getenv('DB_PASS') ?: null,
+        getenv('ASAAS_API_KEY') ?: null,
+        getenv('ASAAS_WEBHOOK_TOKEN') ?: null,
+    ], static fn (mixed $value): bool => is_string($value) && $value !== '');
+    $safeMessage = str_replace($secrets, '[REDACTED]', $message);
+    @error_log('[' . date('Y-m-d H:i:s') . '] ' . $safeMessage . PHP_EOL, 3, $directory . '/app.log');
+}
+
 function url(string $path = ''): string
 {
     $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');

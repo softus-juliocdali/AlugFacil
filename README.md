@@ -91,12 +91,12 @@ Responsabilidades principais:
 
 Instale o PostgreSQL e crie o banco usado pelo projeto:
 
-Banco ja configurado para o deploy:
+Crie um banco e um usuario exclusivos para cada ambiente. Nao registre credenciais reais neste arquivo.
 
 ```text
-Banco: alugfaciln_sistema
-Usuario: alugfaciln_admin
-Senha: 284715*Ju
+Banco: nome_do_banco
+Usuario: usuario_do_banco
+Senha: definida_no_ambiente
 Host padrao: 127.0.0.1
 Porta padrao: 5432
 ```
@@ -108,9 +108,9 @@ Configuração local sugerida:
 ```text
 Host: 127.0.0.1
 Porta: 5432
-Banco: alugfaciln_sistema
-Usuário: alugfaciln_admin
-Senha: 284715*Ju
+Banco: alugfacil_dev
+Usuário: postgres
+Senha: definida_no_arquivo_env_local
 ```
 
 Esses valores podem ser alterados por variáveis de ambiente.
@@ -120,13 +120,13 @@ Esses valores podem ser alterados por variáveis de ambiente.
 Com o banco criado, importe o arquivo principal:
 
 ```bash
-psql -U alugfaciln_admin -d alugfaciln_sistema -f database/alugfacil_postgres.sql
+psql -U SEU_USUARIO -d SEU_BANCO -f database/alugfacil_postgres.sql
 ```
 
 No PowerShell, a partir da raiz do projeto:
 
 ```powershell
-psql -U alugfaciln_admin -d alugfaciln_sistema -f .\database\alugfacil_postgres.sql
+psql -U SEU_USUARIO -d SEU_BANCO -f .\database\alugfacil_postgres.sql
 ```
 
 O arquivo `database/alugfacil_postgres.sql` faz uma instalação limpa: ele remove tabelas existentes e recria a estrutura inicial. Use com cuidado se já houver dados reais no banco.
@@ -134,8 +134,8 @@ O arquivo `database/alugfacil_postgres.sql` faz uma instalação limpa: ele remo
 Se estiver atualizando uma base antiga, aplique também as migrations disponíveis quando necessário:
 
 ```powershell
-psql -U alugfaciln_admin -d alugfaciln_sistema -f .\database\auth_migration.sql
-psql -U alugfaciln_admin -d alugfaciln_sistema -f .\database\owner_cpf_migration.sql
+psql -U SEU_USUARIO -d SEU_BANCO -f .\database\auth_migration.sql
+psql -U SEU_USUARIO -d SEU_BANCO -f .\database\owner_cpf_migration.sql
 ```
 
 ## 8. Como configurar conexão com banco
@@ -146,21 +146,21 @@ A conexão é configurada em `app/config/database.php` e lê variáveis de ambie
 DB_DRIVER=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
-DB_NAME=alugfaciln_sistema
-DB_USER=alugfaciln_admin
-DB_PASS=284715*Ju
+DB_NAME=alugfacil_dev
+DB_USER=postgres
+DB_PASS=
 ```
 
 Exemplo no PowerShell:
 
 ```powershell
-$env:APP_ENV = 'production'
-$env:APP_URL = 'https://alugfacil.net.br'
+$env:APP_ENV = 'development'
+$env:APP_URL = 'http://127.0.0.1:8000'
 $env:DB_HOST = '127.0.0.1'
 $env:DB_PORT = '5432'
-$env:DB_NAME = 'alugfaciln_sistema'
-$env:DB_USER = 'alugfaciln_admin'
-$env:DB_PASS = '284715*Ju'
+$env:DB_NAME = 'alugfacil_dev'
+$env:DB_USER = 'postgres'
+$env:DB_PASS = 'SUA_SENHA_LOCAL'
 ```
 
 Para testar a conexão em ambiente de desenvolvimento, rode o servidor local e acesse:
@@ -215,13 +215,13 @@ https://seu-dominio-ou-tunel/webhook_asaas.php
 Na raiz do projeto, execute:
 
 ```bash
-php -S localhost:8000 -t public
+php -S 127.0.0.1:8000 -t public public/router.php
 ```
 
 Acesse:
 
 ```text
-http://localhost:8000
+http://127.0.0.1:8000
 ```
 
 Antes de testar login, reservas ou painéis, confirme que o PostgreSQL está rodando e que o arquivo `database/alugfacil_postgres.sql` foi importado.
@@ -231,8 +231,8 @@ Antes de testar login, reservas ou painéis, confirme que o PostgreSQL está rod
 O schema inicial cria um usuário administrador:
 
 ```text
-E-mail: admin@alugfacil.com.br
-Senha: 123456
+E-mail: definido_no_ambiente
+Senha: definida_no_ambiente
 ```
 
 A senha **deve estar salva no banco com hash**, nunca em texto puro. O campo usado pela tabela `usuarios` é `senha_hash`.
@@ -240,7 +240,7 @@ A senha **deve estar salva no banco com hash**, nunca em texto puro. O campo usa
 Para gerar o hash no PHP:
 
 ```php
-password_hash('123456', PASSWORD_DEFAULT);
+password_hash('SENHA_FORTE', PASSWORD_DEFAULT);
 ```
 
 O login valida a senha com:
@@ -400,3 +400,4 @@ Após o primeiro acesso, troque a senha do administrador.
 10. Criar política de backup e restore do PostgreSQL.
 11. Preparar deploy com servidor web dedicado, HTTPS e variáveis de ambiente.
 12. Criar pipeline de lint, testes e validação antes de produção.
+13. Definir e testar uma Content-Security-Policy compatível com mapas, fontes, imagens e integrações externas.

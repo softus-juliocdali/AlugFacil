@@ -26,11 +26,37 @@ $config = require APP_ROOT . '/app/config/config.php';
 date_default_timezone_set($config['timezone']);
 ini_set('display_errors', $config['app_env'] === 'development' ? '1' : '0');
 error_reporting(E_ALL);
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('X-Frame-Options: SAMEORIGIN');
+
+$isHttps = !empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+session_set_cookie_params([
+    'httponly' => true,
+    'secure' => $config['app_env'] === 'production' && $isHttps,
+    'samesite' => 'Lax',
+]);
 session_name($config['session_name']);
 session_start();
 
+$now = time();
+if (isset($_SESSION['_last_activity']) && $now - (int) $_SESSION['_last_activity'] > 7200) {
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', $now - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    }
+    session_destroy();
+    session_start();
+    session_regenerate_id(true);
+    flash('error', 'Sua sessao expirou. Faca login novamente.');
+    header('Location: ' . url('/login'));
+    exit;
+}
+$_SESSION['_last_activity'] = $now;
+
 set_exception_handler(static function (Throwable $exception) use ($config): void {
-    error_log(sprintf(
+    app_log(sprintf(
         '%s: %s in %s:%d',
         $exception::class,
         $exception->getMessage(),
@@ -56,7 +82,7 @@ set_exception_handler(static function (Throwable $exception) use ($config): void
             'message' => 'Nao foi possivel concluir sua solicitacao agora. Tente novamente em instantes.',
         ]);
     } catch (Throwable $fallbackException) {
-        error_log($fallbackException->getMessage());
+        app_log($fallbackException::class . ': ' . $fallbackException->getMessage());
         header('Content-Type: text/html; charset=UTF-8');
         echo '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro interno</title></head><body>';
         echo '<h1>Nao foi possivel concluir a solicitacao</h1>';

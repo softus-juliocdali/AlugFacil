@@ -14,6 +14,10 @@ if (!defined('ASAAS_BASE_URL')) {
     define('ASAAS_BASE_URL', getenv('ASAAS_BASE_URL') ?: 'https://sandbox.asaas.com/api/v3');
 }
 
+if (!defined('ASAAS_WEBHOOK_TOKEN')) {
+    define('ASAAS_WEBHOOK_TOKEN', getenv('ASAAS_WEBHOOK_TOKEN') ?: '');
+}
+
 return [
     'maps' => [
         'provider' => 'google',
@@ -22,6 +26,7 @@ return [
     'asaas' => [
         'api_key' => ASAAS_API_KEY,
         'base_url' => rtrim(ASAAS_BASE_URL, '/'),
+        'webhook_token' => ASAAS_WEBHOOK_TOKEN,
     ],
     'payment' => [
         'provider' => getenv('PAYMENT_PROVIDER') ?: '',

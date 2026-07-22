@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+$loadEnvironment = require __DIR__ . '/env.php';
+$loadEnvironment(dirname(__DIR__, 2) . '/.env');
+
 return [
     'app_name' => 'Alug Fácil',
     'app_env' => getenv('APP_ENV') ?: 'production',

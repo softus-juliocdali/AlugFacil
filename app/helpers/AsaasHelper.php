@@ -160,13 +160,8 @@ final class AsaasHelper
 
     public static function logErro(string $mensagem, array $contexto = []): void
     {
-        $linha = '[' . date('Y-m-d H:i:s') . '] ' . $mensagem;
-
-        if ($contexto !== []) {
-            $linha .= ' ' . json_encode($contexto, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        }
-
-        error_log($linha . PHP_EOL, 3, APP_ROOT . '/asaas-error.log');
+        $event = isset($contexto['event']) ? ' Evento: ' . (string) $contexto['event'] . '.' : '';
+        app_log($mensagem . $event);
     }
 
     private function localizarCliente(string $externalReference): ?array
