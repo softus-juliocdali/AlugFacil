@@ -59,6 +59,7 @@ final class PanelController extends Controller
             'title' => 'Reserva #' . $id,
             'panelRole' => 'cliente',
             'reserva' => $this->corrigirCodificacao($reserva),
+            'historico' => (new Reserva())->historico($id),
         ], 'panel');
     }
 

@@ -11,6 +11,7 @@ use App\Controllers\OwnerBillingController;
 use App\Controllers\OwnerChacaraController;
 use App\Controllers\PanelController;
 use App\Controllers\ReservaController;
+use App\Controllers\ReservaLifecycleController;
 use App\Core\Database;
 use App\Core\Router;
 
@@ -23,6 +24,7 @@ return static function (Router $router, array $config): void {
     $router->get('/reserva/criar/{chacara_id}', [ReservaController::class, 'create']);
     $router->post('/reserva/criar/{chacara_id}', [ReservaController::class, 'store']);
     $router->get('/reserva/confirmacao/{id}', [ReservaController::class, 'confirmation']);
+    $router->post('/reserva/{id}/gerar-pagamento', [ReservaController::class, 'retryPayment']);
 
     $router->get('/login', [AuthController::class, 'showLogin']);
     $router->post('/login', [AuthController::class, 'login']);
@@ -40,6 +42,7 @@ return static function (Router $router, array $config): void {
     $router->get('/cliente/favoritos', [PanelController::class, 'favoritosCliente']);
     $router->get('/cliente/historico', [PanelController::class, 'historicoCliente']);
     $router->get('/cliente/reserva/{id}', [PanelController::class, 'reservaCliente']);
+    $router->post('/cliente/reserva/{id}/cancelar', [ReservaLifecycleController::class, 'cancelarCliente']);
     $router->get('/cliente/meus-dados', [PanelController::class, 'meusDadosCliente']);
     $router->post('/cliente/meus-dados', [PanelController::class, 'atualizarMeusDadosCliente']);
 
@@ -62,6 +65,9 @@ return static function (Router $router, array $config): void {
     $router->get('/proprietario/disponibilidade/{chacara_id}', [OwnerAvailabilityController::class, 'show']);
     $router->post('/proprietario/disponibilidade/salvar', [OwnerAvailabilityController::class, 'save']);
     $router->get('/proprietario/faturamento', [OwnerBillingController::class, 'index']);
+    $router->get('/proprietario/reservas/{id}', [ReservaLifecycleController::class, 'proprietarioDetalhe']);
+    $router->post('/proprietario/reservas/{id}/iniciar', [ReservaLifecycleController::class, 'iniciarProprietario']);
+    $router->post('/proprietario/reservas/{id}/finalizar', [ReservaLifecycleController::class, 'finalizarProprietario']);
 
     $router->get('/admin', [PanelController::class, 'admin']);
     $router->get('/admin/dashboard', [PanelController::class, 'admin']);
@@ -81,6 +87,9 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/usuarios', [AdminController::class, 'usuarios']);
     $router->get('/admin/usuarios/{id}', [AdminController::class, 'usuarioDetalhes']);
     $router->post('/admin/usuarios/{id}/status', [AdminController::class, 'atualizarStatusUsuario']);
+    $router->get('/admin/reservas', [ReservaLifecycleController::class, 'adminIndex']);
+    $router->get('/admin/reservas/{id}', [ReservaLifecycleController::class, 'adminDetalhe']);
+    $router->post('/admin/reservas/{id}/transicao', [ReservaLifecycleController::class, 'adminTransicao']);
 
     if ($config['app_env'] !== 'development') {
         return;

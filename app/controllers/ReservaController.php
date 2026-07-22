@@ -126,6 +126,15 @@ final class ReservaController extends Controller
         ]);
     }
 
+    public function retryPayment(string $reservaId): void
+    {
+        Auth::requireRole('cliente'); verify_csrf(); $id=$this->validarId($reservaId); $model=new Reserva();
+        $reserva=$model->buscarConfirmacao($id,(int)Auth::user()['id']);
+        if(!$reserva){$this->notFound();}
+        if($reserva['status_reserva']!=='aguardando_pagamento'||$reserva['status_pagamento']==='pago'||empty($reserva['expira_em'])||strtotime($reserva['expira_em'])<=time()||!empty($reserva['id_cobranca_asaas'])){flash('error','Esta reserva nao permite gerar uma nova cobranca.');$this->redirect('/reserva/confirmacao/'.$id);}
+        $this->gerarCobrancaAsaas($model,$id); $this->redirect('/reserva/confirmacao/'.$id);
+    }
+
     private function validarId(string $id): int
     {
         $validado = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

@@ -405,7 +405,8 @@ final class Chacara extends Model
                     interval '1 day'
                 ) AS serie(data)
                 WHERE r.chacara_id = :reserva_chacara_id
-                  AND r.status_reserva NOT IN ('cancelada', 'finalizada')
+                  AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                  AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                   AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
                 ORDER BY data
                 SQL
@@ -450,7 +451,8 @@ final class Chacara extends Model
                 ) AS serie(data)
                 WHERE r.chacara_id = :reserva_chacara_id
                   AND c.proprietario_id = :reserva_proprietario_id
-                  AND r.status_reserva IN ('pagamento_confirmado', 'confirmada')
+                  AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                  AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                   AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
                 ORDER BY data ASC, status DESC
                 SQL
@@ -479,7 +481,8 @@ final class Chacara extends Model
                     INNER JOIN chacaras c ON c.id = r.chacara_id
                     WHERE r.chacara_id = :chacara_id
                       AND c.proprietario_id = :proprietario_id
-                      AND r.status_reserva IN ('pagamento_confirmado', 'confirmada')
+                      AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                      AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                       AND r.data_inicio < :fim
                       AND r.data_fim > :inicio
                 )
@@ -808,7 +811,8 @@ final class Chacara extends Model
                     SELECT 1
                     FROM reservas r
                     WHERE r.chacara_id = c.id
-                      AND r.status_reserva NOT IN ('cancelada', 'finalizada')
+                      AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                      AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                       AND r.data_inicio < :reserva_data_fim
                       AND r.data_fim > :reserva_data_inicio
                 )

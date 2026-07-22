@@ -66,6 +66,7 @@ $formatarData = static fn (string $data): string => date('d/m/Y', strtotime($dat
                             <strong>R$ <?= e(number_format((float) $reserva['valor_total'], 2, ',', '.')) ?></strong>
                             <span class="status-pill"><?= e($formatarStatus($reserva['status_reserva'])) ?></span>
                             <span class="status-pill status-payment"><?= e($formatarStatus($reserva['status_pagamento'])) ?></span>
+                            <a class="btn btn-outline" href="<?= url('/proprietario/reservas/'.(int)$reserva['id']) ?>">Detalhes</a>
                         </div>
                     </article>
                 <?php endforeach; ?>

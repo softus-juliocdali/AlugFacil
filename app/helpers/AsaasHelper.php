@@ -7,6 +7,7 @@ namespace App\Helpers;
 use App\Core\Database;
 use RuntimeException;
 use Throwable;
+use App\Services\ReservaStatusService;
 
 final class AsaasHelper
 {
@@ -95,6 +96,10 @@ final class AsaasHelper
         }
 
         $status = $this->mapearStatus($evento, (string) ($pagamento['status'] ?? ''));
+        if (!($status['reconhecido'] ?? false)) {
+            $this->registrarLog('Evento Asaas desconhecido ignorado.', ['event' => $evento]);
+            return null;
+        }
         $statusPagamento = $status['pagamento'];
         $statusReserva = $status['reserva'];
 
@@ -103,7 +108,7 @@ final class AsaasHelper
 
         try {
             $statement = $db->prepare(
-                'SELECT id, usuario_id, valor_total FROM reservas WHERE id_cobranca_asaas = :id_cobranca LIMIT 1 FOR UPDATE'
+                'SELECT id, usuario_id, valor_total, status_reserva, status_pagamento FROM reservas WHERE id_cobranca_asaas = :id_cobranca LIMIT 1 FOR UPDATE'
             );
             $statement->execute(['id_cobranca' => $idCobranca]);
             $reserva = $statement->fetch();
@@ -117,15 +122,19 @@ final class AsaasHelper
                 return null;
             }
 
-            $updates = ['status_pagamento = :status_pagamento'];
+            $tardio = $statusPagamento === 'pago' && in_array($reserva['status_reserva'], ['expirada','cancelada','finalizada','estornada'], true);
+            $updates = [$reserva['status_pagamento'] === 'pago' ? "status_pagamento = 'pago'" : 'status_pagamento = :status_pagamento'];
             $params = [
                 'id' => (int) $reserva['id'],
                 'status_pagamento' => $statusPagamento,
             ];
+            if ($reserva['status_pagamento'] === 'pago') unset($params['status_pagamento']);
 
-            if ($statusReserva !== null) {
-                $updates[] = 'status_reserva = :status_reserva';
-                $params['status_reserva'] = $statusReserva;
+            if ($tardio) {
+                $updates[] = 'divergencia_pagamento = TRUE';
+                $this->registrarLog('Pagamento recebido para reserva em estado final.', ['event'=>$evento]);
+            } elseif ($statusReserva !== null && ReservaStatusService::podeTransicionar((string)$reserva['status_reserva'], $statusReserva)) {
+                (new ReservaStatusService($db))->transicionar((int)$reserva['id'], $statusReserva, ['motivo'=>'Evento de pagamento Asaas','origem'=>'webhook','responsavel_tipo'=>'webhook']);
             }
 
             $db->prepare(
@@ -274,7 +283,7 @@ final class AsaasHelper
                     (:reserva_id, :usuario_id, :valor, :forma_pagamento, :status_pagamento, :id_transacao_asaas, :data_pagamento)
                 ON CONFLICT (id_transacao_asaas)
                 DO UPDATE SET
-                    status_pagamento = EXCLUDED.status_pagamento,
+                    status_pagamento = CASE WHEN pagamentos.status_pagamento = 'pago' THEN 'pago' ELSE EXCLUDED.status_pagamento END,
                     forma_pagamento = EXCLUDED.forma_pagamento,
                     data_pagamento = COALESCE(EXCLUDED.data_pagamento, pagamentos.data_pagamento)
                 SQL
@@ -297,21 +306,26 @@ final class AsaasHelper
             'PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED' => [
                 'pagamento' => 'pago',
                 'reserva' => 'confirmada',
+                'reconhecido' => true,
             ],
             'PAYMENT_DELETED' => [
                 'pagamento' => 'cancelado',
                 'reserva' => 'cancelada',
+                'reconhecido' => true,
             ],
             'PAYMENT_REFUNDED' => [
                 'pagamento' => 'estornado',
                 'reserva' => 'cancelada',
+                'reconhecido' => true,
             ],
-            default => [
+            'PAYMENT_CREATED', 'PAYMENT_OVERDUE', 'PAYMENT_PENDING' => [
                 'pagamento' => 'pendente',
                 'reserva' => $chave === 'PAYMENT_CREATED' || $chave === 'PAYMENT_OVERDUE'
                     ? 'aguardando_pagamento'
                     : null,
+                'reconhecido' => true,
             ],
+            default => ['pagamento' => null, 'reserva' => null, 'reconhecido' => false],
         };
     }
 

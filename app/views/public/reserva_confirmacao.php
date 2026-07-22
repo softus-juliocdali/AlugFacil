@@ -39,13 +39,18 @@ $formatarStatus = static fn (string $status): string => ucfirst(str_replace('_',
                     <div class="confirmation-total"><dt>Valor total</dt><dd>R$ <?= e(number_format((float) $reserva['valor_total'], 2, ',', '.')) ?></dd></div>
                     <div><dt>Status da reserva</dt><dd><span class="status-pill"><?= e($formatarStatus($reserva['status_reserva'])) ?></span></dd></div>
                     <div><dt>Status do pagamento</dt><dd><span class="status-pill status-payment"><?= e($formatarStatus($reserva['status_pagamento'])) ?></span></dd></div>
+                    <?php if (!empty($reserva['expira_em'])): ?><div><dt>Prazo para pagamento</dt><dd><?= e(date('d/m/Y H:i', strtotime($reserva['expira_em']))) ?></dd></div><?php endif; ?>
                 </dl>
 
                 <?php if (!empty($reserva['link_pagamento_asaas'])): ?>
                     <a class="btn btn-book" href="<?= e($reserva['link_pagamento_asaas']) ?>" target="_blank" rel="noopener">Pagar Reserva</a>
                 <?php else: ?>
                     <div class="payment-empty">O link de pagamento ainda não foi gerado para esta reserva.</div>
+                    <?php if ($reserva['status_reserva'] === 'aguardando_pagamento' && !empty($reserva['expira_em']) && strtotime($reserva['expira_em']) > time()): ?>
+                        <form method="post" action="<?= url('/reserva/' . (int)$reserva['id'] . '/gerar-pagamento') ?>"><?= csrf_field() ?><button class="btn btn-book" type="submit">Gerar pagamento novamente</button></form>
+                    <?php endif; ?>
                 <?php endif; ?>
+                <?php if ($reserva['status_reserva'] === 'expirada'): ?><div class="payment-empty">Esta reserva expirou e as datas foram liberadas.</div><?php endif; ?>
 
                 <a class="confirmation-back" href="<?= url('/chacara/' . (int) $reserva['chacara_id']) ?>">Voltar ao perfil da chácara</a>
             </div>

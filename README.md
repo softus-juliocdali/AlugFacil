@@ -202,6 +202,26 @@ O endpoint público de webhook fica em:
 
 ```text
 public/webhook_asaas.php
+
+## Ciclo de vida das reservas
+
+Defina `RESERVA_EXPIRACAO_MINUTOS=30` no ambiente. Aplique a migration local com
+`php database/apply_reservation_lifecycle_migration.php` e verifique com
+`php database/verify_reservation_lifecycle.php`.
+
+O mecanismo oficial de expiracao e `php scripts/expire-reservas.php`. Em uma
+implantacao futura ele pode ser executado pelo cron a cada cinco minutos, usando
+o caminho absoluto da instalacao (sem gravar caminhos de producao no repositorio).
+
+Reservas historicas sem prazo podem ser auditadas, sem alteracao, com
+`php scripts/reconcile-pending-reservas.php --dry-run` (o modo padrao tambem e
+somente leitura). Uma eventual correcao exige `--apply`, usa a maquina de estados
+e continua restrita ao banco local `alugfacil_dev`.
+
+Reservas historicas pendentes nao recebem prazo retroativo. O rollback seguro e
+logico: pare o cron e reverta a aplicacao para a versao anterior. Colunas e o
+historico devem ser preservados; sua remocao manual so deve ocorrer depois de
+backup e verificacao de que nenhuma versao ativa os utiliza.
 ```
 
 Para receber webhooks localmente, exponha o servidor com uma ferramenta de túnel, como ngrok ou Cloudflare Tunnel, e cadastre no painel Sandbox do Asaas uma URL absoluta parecida com:

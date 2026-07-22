@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use PDO;
 use RuntimeException;
 use Throwable;
+use App\Services\ReservaStatusService;
 
 final class Reserva extends Model
 {
@@ -86,11 +87,14 @@ final class Reserva extends Model
                       AND r.data_inicio < :fim
                       AND r.data_fim > :inicio
                       AND r.status_reserva IN (
-                          'solicitada',
                           'aguardando_pagamento',
                           'pagamento_confirmado',
-                          'confirmada'
+                          'confirmada',
+                          'em_andamento',
+                          'cancelamento_solicitado',
+                          'disputa'
                       )
+                      AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                 )
                 SQL
         );
@@ -109,6 +113,7 @@ final class Reserva extends Model
 
         try {
             $this->bloquearCriacaoConcorrente((int) $dados['chacara_id']);
+            (new ReservaStatusService($this->db))->expirarVencidas(25, (int) $dados['chacara_id']);
 
             if ($this->buscarChacaraParaReserva((int) $dados['chacara_id']) === null) {
                 throw new RuntimeException('Imovel ou proprietario sem autorizacao para reserva.');
@@ -135,6 +140,7 @@ final class Reserva extends Model
                             valor_total,
                             status_reserva,
                             status_pagamento
+                            ,expira_em
                         )
                     VALUES
                         (
@@ -148,6 +154,7 @@ final class Reserva extends Model
                             :valor_total,
                             'aguardando_pagamento',
                             'pendente'
+                            ,CURRENT_TIMESTAMP + (:expiracao_minutos * INTERVAL '1 minute')
                         )
                     RETURNING id
                     SQL
@@ -161,9 +168,11 @@ final class Reserva extends Model
                 'quantidade_diarias' => $dados['quantidade_diarias'],
                 'valor_diaria' => number_format((float) $dados['valor_diaria'], 2, '.', ''),
                 'valor_total' => number_format((float) $dados['valor_total'], 2, '.', ''),
+                'expiracao_minutos' => max(5, min(1440, (int) (getenv('RESERVA_EXPIRACAO_MINUTOS') ?: 30))),
             ]);
 
             $id = (int) $statement->fetchColumn();
+            (new ReservaStatusService($this->db))->registrarInicial($id);
             $this->db->commit();
 
             return ['id' => $id];
@@ -246,10 +255,10 @@ final class Reserva extends Model
             <<<'SQL'
                 UPDATE reservas
                 SET id_cobranca_asaas = :id_cobranca_asaas,
-                    link_pagamento_asaas = :link_pagamento_asaas,
-                    status_reserva = 'aguardando_pagamento',
-                    status_pagamento = 'pendente'
-                WHERE id = :id
+                    link_pagamento_asaas = :link_pagamento_asaas
+                WHERE id = :id AND status_reserva = 'aguardando_pagamento'
+                  AND status_pagamento = 'pendente' AND expira_em > CURRENT_TIMESTAMP
+                  AND id_cobranca_asaas IS NULL
                 SQL
         );
         $statement->execute([
@@ -257,6 +266,29 @@ final class Reserva extends Model
             'id_cobranca_asaas' => $idCobranca,
             'link_pagamento_asaas' => $linkPagamento,
         ]);
+    }
+
+    public function historico(int $reservaId): array
+    {
+        $s=$this->db->prepare('SELECT status_anterior,status_novo,motivo,origem,criado_em FROM historico_status_reservas WHERE reserva_id=:id ORDER BY criado_em DESC,id DESC');
+        $s->execute(['id'=>$reservaId]); return $s->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function buscarDetalheProprietario(int $id, int $proprietarioId): ?array
+    {
+        $s=$this->db->prepare('SELECT r.*,c.nome AS chacara_nome,u.nome AS cliente_nome,u.email AS cliente_email FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id WHERE r.id=:id AND r.proprietario_id=:proprietario LIMIT 1');
+        $s->execute(['id'=>$id,'proprietario'=>$proprietarioId]); return $s->fetch(PDO::FETCH_ASSOC)?:null;
+    }
+
+    public function buscarDetalheAdministrativo(int $id): ?array
+    {
+        $s=$this->db->prepare('SELECT r.*,c.nome AS chacara_nome,u.nome AS cliente_nome,u.email AS cliente_email,p.nome AS proprietario_nome FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id JOIN proprietarios p ON p.id=r.proprietario_id WHERE r.id=:id LIMIT 1');
+        $s->execute(['id'=>$id]); return $s->fetch(PDO::FETCH_ASSOC)?:null;
+    }
+
+    public function listarAdministrativas(string $status=''): array
+    {
+        $where=$status!==''?'WHERE r.status_reserva=:status':'';$s=$this->db->prepare("SELECT r.id,r.data_inicio,r.data_fim,r.valor_total,r.status_reserva,r.status_pagamento,c.nome AS chacara_nome,u.nome AS cliente_nome,p.nome AS proprietario_nome FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id JOIN proprietarios p ON p.id=r.proprietario_id {$where} ORDER BY r.data_reserva DESC,r.id DESC");$s->execute($status!==''?['status'=>$status]:[]);return $s->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function listarPorCliente(int $usuarioId): array
