@@ -189,7 +189,8 @@ A integração Asaas é configurada em `app/config/apis.php` pelas variáveis:
 
 ```powershell
 $env:ASAAS_API_KEY = 'SUA_CHAVE_SANDBOX_ASAAS'
-$env:ASAAS_BASE_URL = 'https://sandbox.asaas.com/api/v3'
+$env:ASAAS_ENVIRONMENT = 'sandbox'
+$env:ASAAS_BASE_URL = 'https://api-sandbox.asaas.com/v3'
 ```
 
 O helper principal fica em:

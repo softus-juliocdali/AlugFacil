@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace App\Controllers;
-use App\Core\Auth;use App\Core\Controller;use App\Models\Reserva;use App\Services\PrecificacaoReservaService;use DateTimeImmutable;use DateTimeZone;use RuntimeException;use Throwable;
+use App\Core\Auth;use App\Core\Controller;use App\Models\Reserva;use App\Services\PrecificacaoReservaService;use App\Helpers\AsaasHelper;use DateTimeImmutable;use DateTimeZone;use RuntimeException;use Throwable;
 final class ReservaController extends Controller
 {
  public function create(string$id):void{Auth::requireRole('cliente');$rid=$this->id($id);$m=new Reserva();$c=$m->buscarChacaraParaReserva($rid);if(!$c)$this->notFound();$i=old('data_inicio',$this->dataQuery('data_inicio'));$f=old('data_fim',$this->dataQuery('data_fim'));$n=Reserva::periodoValido($i,$f)?Reserva::calcularDiarias($i,$f):0;$d=PrecificacaoReservaService::decimalParaCentavos((string)$c['valor_diaria']);$this->render($c,$i,$f,$n,$d*$n,null,null);}
@@ -16,7 +16,13 @@ final class ReservaController extends Controller
    clear_old();flash('success','Reserva criada. A cobranca PIX permanece desativada ate a homologacao Sandbox.');$this->redirect('/reserva/confirmacao/'.$r['id']);
   }catch(Throwable$e){$this->erro($e instanceof RuntimeException?$e->getMessage():'Nao foi possivel criar a reserva agora.',$rid);}}
  public function confirmation(string$id):void{Auth::requireRole('cliente');$rid=$this->id($id);$r=(new Reserva())->buscarConfirmacao($rid,(int)Auth::user()['id']);if(!$r)$this->notFound();$this->view('public/reserva_confirmacao',['title'=>'Confirmacao da reserva #'.$rid.' | Alug Facil','reserva'=>$r]);}
- public function retryPayment(string$id):void{Auth::requireRole('cliente');verify_csrf();flash('error','Geracao externa desativada neste ciclo. Use o cliente fake para homologacao.');$this->redirect('/reserva/confirmacao/'.$this->id($id));}
+ public function retryPayment(string$id):void
+ {Auth::requireRole('cliente');verify_csrf();$rid=$this->id($id);$m=new Reserva();$r=$m->buscarConfirmacao($rid,(int)Auth::user()['id']);if(!$r)$this->notFound();
+  try{if(!empty($r['id_cobranca_asaas'])){$this->redirect('/reserva/confirmacao/'.$rid);}
+   $h=new AsaasHelper();$p=$h->criarCobranca(['id'=>$rid,'valor_total_centavos'=>(int)$r['valor_total_cliente_centavos'],'data_vencimento'=>date('Y-m-d',strtotime('+1 day')),'chacara_nome'=>$r['chacara_nome'],'data_inicio'=>$r['data_inicio'],'data_fim'=>$r['data_fim'],'billing_type'=>'PIX','cliente'=>['id'=>$r['usuario_id'],'nome'=>$r['cliente_nome'],'email'=>$r['email']??null,'telefone'=>$r['telefone']??null]]);
+   $pid=trim((string)($p['id']??''));if($pid==='')throw new RuntimeException('Asaas nao retornou o ID da cobranca.');$qr=$h->consultarQrCodePix($pid);$m->atualizarCobrancaAsaas($rid,$pid,(string)($p['invoiceUrl']??''),(string)($qr['encodedImage']??''),(string)($qr['payload']??''),(string)($p['status']??'PENDING'),(string)($p['dueDate']??''));
+   flash('success','Cobranca PIX Sandbox criada. A reserva aguarda confirmacao por webhook.');
+  }catch(Throwable$e){app_log('Falha segura ao gerar PIX Sandbox. reserva_id='.$rid);flash('error',$e instanceof RuntimeException?$e->getMessage():'Nao foi possivel gerar o PIX agora.');}$this->redirect('/reserva/confirmacao/'.$rid);}
  private function render(array$c,string$i,string$f,int$n,int$total,?array$q,?string$qid,bool$menos24=false):void{$this->view('public/reserva_criar',['title'=>'Reservar '.$c['nome'].' | Alug Facil','chacara'=>$c,'dataInicio'=>$i,'dataFim'=>$f,'quantidadeDiarias'=>$n,'valorTotal'=>$total,'minDataInicio'=>date('Y-m-d'),'meiosPagamento'=>[['forma_pagamento'=>'PIX','quantidade_parcelas'=>1]],'cotacao'=>$q,'cotacaoId'=>$qid,'menos24h'=>$menos24]);}
  private function erro(string$m,int$id):never{flash('error',$m);$this->redirect('/reserva/criar/'.$id);}
  private function id(string$v):int{$id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false)$this->notFound();return(int)$id;}

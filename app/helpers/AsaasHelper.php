@@ -9,19 +9,16 @@ use RuntimeException;
 use Throwable;
 use App\Services\ReservaStatusService;
 use App\Models\AsaasWebhookEvento;
+use App\Services\AsaasHttpClient;
+use App\Services\AsaasPaymentClientInterface;
+use App\Services\AsaasEnvironment;
 
 final class AsaasHelper
 {
-    private string $apiKey;
-    private string $baseUrl;
-
-    public function __construct()
+    private AsaasPaymentClientInterface $client;
+    public function __construct(?AsaasPaymentClientInterface $client = null)
     {
-        $config = require APP_ROOT . '/app/config/apis.php';
-        $asaas = $config['asaas'] ?? [];
-
-        $this->apiKey = trim((string) ($asaas['api_key'] ?? ''));
-        $this->baseUrl = rtrim((string) ($asaas['base_url'] ?? 'https://sandbox.asaas.com/api/v3'), '/');
+        $this->client = $client ?? new AsaasHttpClient();
     }
 
     public function criarClienteAsaas(array $dadosUsuario): array
@@ -35,7 +32,7 @@ final class AsaasHelper
             return $clienteExistente;
         }
 
-        return $this->request('POST', '/customers', [
+        return $this->client->criarCliente([
             'name' => $dadosUsuario['nome'] ?? 'Cliente Alug Facil',
             'email' => $dadosUsuario['email'] ?? null,
             'phone' => $this->somenteDigitos((string) ($dadosUsuario['telefone'] ?? '')),
@@ -46,7 +43,7 @@ final class AsaasHelper
 
     public function criarCobranca(array $dadosReserva): array
     {
-        $this->garantirConfigurado();
+        AsaasEnvironment::assertCredentials(true);
 
         $cliente = $this->criarClienteAsaas($dadosReserva['cliente'] ?? []);
         $centavos=(int)($dadosReserva['valor_total_centavos']??0);
@@ -58,23 +55,31 @@ final class AsaasHelper
 
         $vencimento = (string) ($dadosReserva['data_vencimento'] ?? date('Y-m-d', strtotime('+1 day')));
 
+        $externalReference='reserva_' . (int) ($dadosReserva['id'] ?? 0);
+        $existentes=$this->client->listarCobrancas(['externalReference'=>$externalReference]);
+        if(isset($existentes['data'][0])&&is_array($existentes['data'][0]))return $existentes['data'][0];
         $payload=[
             'customer' => $cliente['id'] ?? '',
             'billingType' => 'PIX',
             'value' => $valor,
             'dueDate' => $vencimento,
             'description' => $this->descricaoCobranca($dadosReserva),
-            'externalReference' => 'reserva_' . (int) ($dadosReserva['id'] ?? 0),
+            'externalReference' => $externalReference,
         ];
         if(isset($dadosReserva['billing_type'])&&strtoupper((string)$dadosReserva['billing_type'])!=='PIX')throw new RuntimeException('Reservas aceitam exclusivamente PIX.');
-        return $this->request('POST','/payments',$payload);
+        return $this->client->criarCobranca($payload);
     }
 
     public function consultarCobranca(string $idCobranca): array
     {
         $this->garantirConfigurado();
 
-        return $this->request('GET', '/payments/' . rawurlencode($idCobranca));
+        return $this->client->consultarCobranca($idCobranca);
+    }
+
+    public function consultarQrCodePix(string $idCobranca): array
+    {
+        return $this->client->consultarQrCodePix($idCobranca);
     }
 
     public function atualizarStatusPagamento(string $idCobranca): ?array
@@ -98,7 +103,7 @@ final class AsaasHelper
 
     public function configurado(): bool
     {
-        return $this->apiKey !== '' && $this->baseUrl !== '';
+        try { AsaasEnvironment::assertCredentials(); return true; } catch (Throwable) { return false; }
     }
 
     public static function logErro(string $mensagem, array $contexto = []): void
@@ -109,63 +114,10 @@ final class AsaasHelper
 
     private function localizarCliente(string $externalReference): ?array
     {
-        $resposta = $this->request('GET', '/customers?externalReference=' . rawurlencode($externalReference));
+        $resposta = $this->client->listarClientes(['externalReference'=>$externalReference]);
         $clientes = $resposta['data'] ?? [];
 
         return is_array($clientes) && isset($clientes[0]) && is_array($clientes[0]) ? $clientes[0] : null;
-    }
-
-    private function request(string $method, string $path, array $payload = []): array
-    {
-        if (!function_exists('curl_init')) {
-            throw new RuntimeException('A extensao PHP cURL nao esta habilitada.');
-        }
-
-        $url = $this->baseUrl . $path;
-        $ch = curl_init($url);
-
-        if ($ch === false) {
-            throw new RuntimeException('Nao foi possivel iniciar conexao com o Asaas.');
-        }
-
-        $headers = [
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'access_token: ' . $this->apiKey,
-        ];
-
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => 30,
-        ]);
-
-        if ($method !== 'GET') {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
-        }
-
-        $raw = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $erro = curl_error($ch);
-        curl_close($ch);
-
-        if ($raw === false || $erro !== '') {
-            throw new RuntimeException('Falha ao conectar ao Asaas: ' . $erro);
-        }
-
-        $data = json_decode((string) $raw, true);
-
-        if (!is_array($data)) {
-            throw new RuntimeException('Resposta invalida do Asaas.');
-        }
-
-        if ($httpCode < 200 || $httpCode >= 300) {
-            $mensagem = $data['errors'][0]['description'] ?? $data['message'] ?? 'Erro retornado pelo Asaas.';
-            throw new RuntimeException((string) $mensagem);
-        }
-
-        return $data;
     }
 
     private function garantirConfigurado(): void

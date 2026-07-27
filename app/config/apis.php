@@ -11,7 +11,7 @@ if (!defined('ASAAS_API_KEY')) {
 }
 
 if (!defined('ASAAS_BASE_URL')) {
-    define('ASAAS_BASE_URL', getenv('ASAAS_BASE_URL') ?: 'https://sandbox.asaas.com/api/v3');
+    define('ASAAS_BASE_URL', getenv('ASAAS_BASE_URL') ?: 'https://api-sandbox.asaas.com/v3');
 }
 
 if (!defined('ASAAS_WEBHOOK_TOKEN')) {
@@ -24,8 +24,10 @@ return [
         'api_key' => GOOGLE_MAPS_API_KEY,
     ],
     'asaas' => [
+        'environment' => getenv('ASAAS_ENVIRONMENT') ?: 'sandbox',
         'api_key' => ASAAS_API_KEY,
         'base_url' => rtrim(ASAAS_BASE_URL, '/'),
+        'webhook_url' => getenv('ASAAS_WEBHOOK_URL') ?: '',
         'webhook_token' => ASAAS_WEBHOOK_TOKEN,
         'webhook_max_body_bytes' => max(1024, (int) (getenv('ASAAS_WEBHOOK_MAX_BODY_BYTES') ?: 1048576)),
         'webhook_process_limit' => max(1, min(500, (int) (getenv('ASAAS_WEBHOOK_PROCESS_LIMIT') ?: 50))),

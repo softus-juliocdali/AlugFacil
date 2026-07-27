@@ -292,13 +292,15 @@ final class Reserva extends Model
         return $reserva ?: null;
     }
 
-    public function atualizarCobrancaAsaas(int $reservaId, string $idCobranca, string $linkPagamento): void
+    public function atualizarCobrancaAsaas(int $reservaId, string $idCobranca, string $linkPagamento, string $qrCode='', string $copiaCola='', string $status='PENDING', string $vencimento=''): void
     {
         $statement = $this->db->prepare(
             <<<'SQL'
                 UPDATE reservas
                 SET id_cobranca_asaas = :id_cobranca_asaas,
-                    link_pagamento_asaas = :link_pagamento_asaas
+                    link_pagamento_asaas = :link_pagamento_asaas,
+                    pix_qr_code_base64 = :qr, pix_copia_cola = :copia,
+                    asaas_status = :status, asaas_vencimento = NULLIF(:vencimento,'')::date
                 WHERE id = :id AND status_reserva = 'aguardando_pagamento'
                   AND status_pagamento = 'pendente' AND expira_em > CURRENT_TIMESTAMP
                   AND id_cobranca_asaas IS NULL
@@ -308,6 +310,7 @@ final class Reserva extends Model
             'id' => $reservaId,
             'id_cobranca_asaas' => $idCobranca,
             'link_pagamento_asaas' => $linkPagamento,
+            'qr'=>$qrCode,'copia'=>$copiaCola,'status'=>$status,'vencimento'=>$vencimento,
         ]);
     }
 
