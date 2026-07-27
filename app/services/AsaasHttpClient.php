@@ -2,13 +2,18 @@
 declare(strict_types=1);
 namespace App\Services;
 use RuntimeException;
-final class AsaasHttpClient implements AsaasClientInterface
+final class AsaasHttpClient implements AsaasClientInterface,AsaasPaymentClientInterface
 {
  public function __construct(private ?string $baseUrl=null,private ?string $apiKey=null){$this->baseUrl=rtrim($baseUrl??(getenv('ASAAS_BASE_URL')?:''),'/');$this->apiKey=$apiKey??(getenv('ASAAS_API_KEY')?:'');}
  public function criarSubconta(array $payload):array{return $this->request('POST','/accounts',$payload);}
  public function listarSubcontas(array $filtros):array{return $this->request('GET','/accounts',[],$filtros);}
  public function consultarSubconta(string $id):array{return $this->request('GET','/accounts/'.rawurlencode($id));}
  public function verificarContaRaiz():array{return $this->request('GET','/myAccount');}
+ public function listarClientes(array$f):array{return$this->request('GET','/customers',[],$f);}
+ public function criarCliente(array$p):array{return$this->request('POST','/customers',$p);}
+ public function listarCobrancas(array$f):array{return$this->request('GET','/payments',[],$f);}
+ public function criarCobranca(array$p):array{return$this->request('POST','/payments',$p);}
+ public function consultarCobranca(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id));}
  private function request(string $method,string $path,array $payload=[],array $query=[]):array
  {
   if($this->apiKey===''||$this->baseUrl==='')throw new RuntimeException('Credenciais Asaas nao configuradas.');

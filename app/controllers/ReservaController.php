@@ -1,50 +1,25 @@
 <?php
 declare(strict_types=1);
 namespace App\Controllers;
-
-use App\Core\Auth;
-use App\Core\Controller;
-use App\Helpers\AsaasHelper;
-use App\Models\Reserva;
-use App\Services\PrecificacaoReservaService;
-use RuntimeException;
-use Throwable;
-
+use App\Core\Auth;use App\Core\Controller;use App\Models\Reserva;use App\Services\PrecificacaoReservaService;use DateTimeImmutable;use DateTimeZone;use RuntimeException;use Throwable;
 final class ReservaController extends Controller
 {
-    public function create(string $chacaraId):void
-    {
-        Auth::requireRole('cliente');$id=$this->id($chacaraId);$m=new Reserva();$c=$m->buscarChacaraParaReserva($id);if(!$c)$this->notFound();
-        $inicio=old('data_inicio',$this->dataQuery('data_inicio'));$fim=old('data_fim',$this->dataQuery('data_fim'));$n=Reserva::periodoValido($inicio,$fim)?Reserva::calcularDiarias($inicio,$fim):0;
-        $diaria=PrecificacaoReservaService::decimalParaCentavos((string)$c['valor_diaria']);
-        $this->render($c,$inicio,$fim,$n,$diaria*$n,null,null);
-    }
-
-    public function store(string $chacaraId):void
-    {
-        Auth::requireRole('cliente');verify_csrf();$id=$this->id($chacaraId);$inicio=trim((string)($_POST['data_inicio']??''));$fim=trim((string)($_POST['data_fim']??''));$forma=strtoupper(trim((string)($_POST['forma_pagamento']??'')));$parcelas=(int)($_POST['quantidade_parcelas']??1);$cotacaoId=trim((string)($_POST['cotacao_id']??''));set_old(['data_inicio'=>$inicio,'data_fim'=>$fim]);
-        $m=new Reserva();$c=$m->buscarChacaraParaReserva($id);if(!$c)$this->notFound();
-        if(!Reserva::periodoValido($inicio,$fim)){flash('error','Informe uma data inicial futura e menor que a data final.');$this->redirect('/reserva/criar/'.$id);}
-        if($m->existeIndisponibilidade($id,$inicio,$fim)||$m->existeConflitoReserva($id,$inicio,$fim)){flash('error','O periodo escolhido nao esta disponivel.');$this->redirect('/reserva/criar/'.$id);}
-        $n=Reserva::calcularDiarias($inicio,$fim);$svc=new PrecificacaoReservaService();$diaria=PrecificacaoReservaService::decimalParaCentavos((string)$c['valor_diaria']);
-        try{
-            if($cotacaoId===''){$snap=$svc->cotar($diaria,$n,$forma,$parcelas);$qid=$m->criarCotacao((int)Auth::user()['id'],$id,$inicio,$fim,$snap);$this->render($c,$inicio,$fim,$n,$snap['valor_total_cliente_centavos'],$snap,$qid);return;}
-            $q=$m->buscarCotacaoValida($cotacaoId,(int)Auth::user()['id'],$id);
-            if($q['data_inicio']!==$inicio||$q['data_fim']!==$fim||$q['forma_pagamento']!==$forma||(int)$q['quantidade_parcelas']!==$parcelas)throw new RuntimeException('Dados enviados divergem da cotacao.');
-            $snap=$svc->cotar($diaria,$n,$forma,$parcelas);if($this->normalizarSnapshot($snap)!==$this->normalizarSnapshot($q['detalhes']))throw new RuntimeException('Os valores foram atualizados. Solicite uma nova cotacao.');
-            $m->marcarCotacaoConsumida($cotacaoId,(int)Auth::user()['id']);
-            $r=$m->criar(array_merge(['usuario_id'=>(int)Auth::user()['id'],'proprietario_id'=>(int)$c['proprietario_id'],'chacara_id'=>$id,'data_inicio'=>$inicio,'data_fim'=>$fim,'quantidade_diarias'=>$n,'valor_diaria'=>PrecificacaoReservaService::centavosParaDecimal($diaria),'valor_total'=>PrecificacaoReservaService::centavosParaDecimal($snap['valor_hospedagem_centavos']),'precificacao_detalhes'=>$snap],$snap));
-            $this->gerarCobrancaAsaas($m,(int)$r['id']);clear_old();flash('success','Reserva criada. Finalize o pagamento para confirmar sua estadia.');$this->redirect('/reserva/confirmacao/'.$r['id']);
-        }catch(Throwable $e){flash('error',$e instanceof RuntimeException?$e->getMessage():'Nao foi possivel criar a reserva agora.');$this->redirect('/reserva/criar/'.$id);}
-    }
-
-    public function confirmation(string $reservaId):void{Auth::requireRole('cliente');$id=$this->id($reservaId);$r=(new Reserva())->buscarConfirmacao($id,(int)Auth::user()['id']);if(!$r)$this->notFound();$this->view('public/reserva_confirmacao',['title'=>'Confirmacao da reserva #'.$id.' | Alug Facil','reserva'=>$r]);}
-    public function retryPayment(string $reservaId):void{Auth::requireRole('cliente');verify_csrf();$id=$this->id($reservaId);$m=new Reserva();$r=$m->buscarConfirmacao($id,(int)Auth::user()['id']);if(!$r)$this->notFound();if($r['status_reserva']!=='aguardando_pagamento'||$r['status_pagamento']==='pago'||empty($r['expira_em'])||strtotime($r['expira_em'])<=time()||!empty($r['id_cobranca_asaas'])){flash('error','Esta reserva nao permite gerar uma nova cobranca.');$this->redirect('/reserva/confirmacao/'.$id);}$this->gerarCobrancaAsaas($m,$id);$this->redirect('/reserva/confirmacao/'.$id);}
-
-    private function render(array $c,string $i,string $f,int $n,int $total,?array $q,?string $qid):void{$this->view('public/reserva_criar',['title'=>'Reservar '.$c['nome'].' | Alug Facil','chacara'=>$c,'dataInicio'=>$i,'dataFim'=>$f,'quantidadeDiarias'=>$n,'valorTotal'=>$total,'minDataInicio'=>date('Y-m-d'),'meiosPagamento'=>(new PrecificacaoReservaService())->configuracoesPagamento(),'cotacao'=>$q,'cotacaoId'=>$qid]);}
-    private function gerarCobrancaAsaas(Reserva $m,int $id):void{$h=new AsaasHelper();if(!$h->configurado()){flash('error','Reserva criada, mas o pagamento online ainda nao esta configurado.');return;}$r=$m->buscarParaCobranca($id);if(!$r)return;try{$c=$h->criarCobranca(['id'=>(int)$r['id'],'valor_total_centavos'=>(int)$r['valor_total_cliente_centavos'],'billing_type'=>$r['forma_pagamento'],'quantidade_parcelas'=>(int)$r['quantidade_parcelas'],'data_inicio'=>$r['data_inicio'],'data_fim'=>$r['data_fim'],'data_vencimento'=>date('Y-m-d',strtotime('+1 day')),'chacara_nome'=>$r['chacara_nome'],'cliente'=>['id'=>(int)$r['cliente_id'],'nome'=>$r['cliente_nome'],'email'=>$r['cliente_email'],'telefone'=>$r['cliente_telefone']??'']]);$link=(string)($c['invoiceUrl']??$c['bankSlipUrl']??'');if(empty($c['id'])||$link==='')throw new RuntimeException('Cobranca criada sem link.');$m->atualizarCobrancaAsaas($id,(string)$c['id'],$link);}catch(Throwable$e){AsaasHelper::logErro('Erro ao criar cobranca da reserva #'.$id.': '.$e->getMessage());flash('error','Reserva criada, mas nao foi possivel gerar o pagamento agora.');}}
-    private function id(string $v):int{$id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false)$this->notFound();return(int)$id;}
-    private function dataQuery(string $k):string{$v=trim((string)($_GET[$k]??''));return preg_match('/^\d{4}-\d{2}-\d{2}$/',$v)?$v:'';}
-    private function normalizarSnapshot(array $snapshot):array{ksort($snapshot);foreach($snapshot as$k=>$v)if(is_array($v))$snapshot[$k]=$this->normalizarSnapshot($v);return$snapshot;}
-    private function notFound():never{http_response_code(404);$this->view('public/404',['title'=>'Reserva nao encontrada']);exit;}
+ public function create(string$id):void{Auth::requireRole('cliente');$rid=$this->id($id);$m=new Reserva();$c=$m->buscarChacaraParaReserva($rid);if(!$c)$this->notFound();$i=old('data_inicio',$this->dataQuery('data_inicio'));$f=old('data_fim',$this->dataQuery('data_fim'));$n=Reserva::periodoValido($i,$f)?Reserva::calcularDiarias($i,$f):0;$d=PrecificacaoReservaService::decimalParaCentavos((string)$c['valor_diaria']);$this->render($c,$i,$f,$n,$d*$n,null,null);}
+ public function store(string$id):void
+ {Auth::requireRole('cliente');verify_csrf();$rid=$this->id($id);$i=trim((string)($_POST['data_inicio']??''));$f=trim((string)($_POST['data_fim']??''));$qid=trim((string)($_POST['cotacao_id']??''));set_old(['data_inicio'=>$i,'data_fim'=>$f]);$m=new Reserva();$c=$m->buscarChacaraParaReserva($rid);if(!$c)$this->notFound();
+  foreach(['forma_pagamento','billingType','billing_type']as$campo)if(isset($_POST[$campo])&&strtoupper(trim((string)$_POST[$campo]))!=='PIX')$this->erro('Reservas aceitam exclusivamente pagamento PIX.',$rid);if(isset($_POST['quantidade_parcelas'])&&(int)$_POST['quantidade_parcelas']!==1)$this->erro('Reservas PIX nao aceitam parcelamento.',$rid);
+  if(!Reserva::periodoValido($i,$f)||$m->existeIndisponibilidade($rid,$i,$f)||$m->existeConflitoReserva($rid,$i,$f))$this->erro('Periodo invalido ou indisponivel.',$rid);
+  try{$n=Reserva::calcularDiarias($i,$f);$svc=new PrecificacaoReservaService();$d=PrecificacaoReservaService::decimalParaCentavos((string)$c['valor_diaria']);$snap=$svc->cotar($d,$n,'PIX',1);$limite=(new DateTimeImmutable($i.' '.substr((string)$c['checkin_hora_inicial'],0,5),new DateTimeZone('America/Sao_Paulo')))->modify('-24 hours');$menos24=new DateTimeImmutable('now',new DateTimeZone('America/Sao_Paulo'))>$limite;
+   if($qid===''){$qid=$m->criarCotacao((int)Auth::user()['id'],$rid,$i,$f,$snap);$this->render($c,$i,$f,$n,$snap['valor_total_cliente_centavos'],$snap,$qid,$menos24);return;}
+   $q=$m->buscarCotacaoValida($qid,(int)Auth::user()['id'],$rid);if($q['data_inicio']!==$i||$q['data_fim']!==$f)throw new RuntimeException('Dados enviados divergem da cotacao.');if($menos24&&!isset($_POST['aceite_reserva_menos_24h']))throw new RuntimeException('Confirme a condicao de cancelamento para continuar.');$m->marcarCotacaoConsumida($qid,(int)Auth::user()['id']);
+   $r=$m->criar(array_merge(['usuario_id'=>(int)Auth::user()['id'],'proprietario_id'=>(int)$c['proprietario_id'],'chacara_id'=>$rid,'data_inicio'=>$i,'data_fim'=>$f,'quantidade_diarias'=>$n,'valor_diaria'=>PrecificacaoReservaService::centavosParaDecimal($d),'valor_total'=>PrecificacaoReservaService::centavosParaDecimal($snap['valor_hospedagem_centavos']),'precificacao_detalhes'=>$snap,'checkin_hora_inicial_snapshot'=>$c['checkin_hora_inicial'],'checkin_hora_final_snapshot'=>$c['checkin_hora_final'],'checkout_hora_inicial_snapshot'=>$c['checkout_hora_inicial'],'checkout_hora_final_snapshot'=>$c['checkout_hora_final'],'aceite_reserva_menos_24h'=>$menos24,'checkin_inicio_em'=>$limite->modify('+24 hours')->format(DATE_ATOM),'cancelamento_permitido_ate'=>$limite->format(DATE_ATOM),'repasse_liberavel_em'=>$limite->format(DATE_ATOM)],$snap));
+   clear_old();flash('success','Reserva criada. A cobranca PIX permanece desativada ate a homologacao Sandbox.');$this->redirect('/reserva/confirmacao/'.$r['id']);
+  }catch(Throwable$e){$this->erro($e instanceof RuntimeException?$e->getMessage():'Nao foi possivel criar a reserva agora.',$rid);}}
+ public function confirmation(string$id):void{Auth::requireRole('cliente');$rid=$this->id($id);$r=(new Reserva())->buscarConfirmacao($rid,(int)Auth::user()['id']);if(!$r)$this->notFound();$this->view('public/reserva_confirmacao',['title'=>'Confirmacao da reserva #'.$rid.' | Alug Facil','reserva'=>$r]);}
+ public function retryPayment(string$id):void{Auth::requireRole('cliente');verify_csrf();flash('error','Geracao externa desativada neste ciclo. Use o cliente fake para homologacao.');$this->redirect('/reserva/confirmacao/'.$this->id($id));}
+ private function render(array$c,string$i,string$f,int$n,int$total,?array$q,?string$qid,bool$menos24=false):void{$this->view('public/reserva_criar',['title'=>'Reservar '.$c['nome'].' | Alug Facil','chacara'=>$c,'dataInicio'=>$i,'dataFim'=>$f,'quantidadeDiarias'=>$n,'valorTotal'=>$total,'minDataInicio'=>date('Y-m-d'),'meiosPagamento'=>[['forma_pagamento'=>'PIX','quantidade_parcelas'=>1]],'cotacao'=>$q,'cotacaoId'=>$qid,'menos24h'=>$menos24]);}
+ private function erro(string$m,int$id):never{flash('error',$m);$this->redirect('/reserva/criar/'.$id);}
+ private function id(string$v):int{$id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false)$this->notFound();return(int)$id;}
+ private function dataQuery(string$k):string{$v=trim((string)($_GET[$k]??''));return preg_match('/^\d{4}-\d{2}-\d{2}$/',$v)?$v:'';}
+ private function notFound():never{http_response_code(404);$this->view('public/404',['title'=>'Reserva nao encontrada']);exit;}
 }

@@ -5,6 +5,7 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\Reserva;
 use App\Services\ReservaStatusService;
+use App\Services\CancelamentoReservaService;
 use DateTimeImmutable;
 use RuntimeException;
 use Throwable;
@@ -14,9 +15,8 @@ final class ReservaLifecycleController extends Controller
     public function cancelarCliente(string $id):void
     {
         Auth::requireRole('cliente');verify_csrf();$rid=$this->id($id);$m=new Reserva();$r=$m->buscarDetalheCliente($rid,(int)Auth::user()['id']);if(!$r)$this->naoEncontrada();
-        $motivo=$this->motivo(false);$novo=$r['status_reserva']==='aguardando_pagamento'?'cancelada':'cancelamento_solicitado';
-        if(!in_array($r['status_reserva'],['aguardando_pagamento','confirmada','em_andamento'],true)){flash('error','Esta reserva nao permite cancelamento.');$this->redirect('/cliente/reserva/'.$rid);}
-        try{(new ReservaStatusService())->transicionar($rid,$novo,['motivo'=>$motivo,'origem'=>'cliente','responsavel_tipo'=>'cliente','responsavel_id'=>(int)Auth::user()['id']]);flash('success',$novo==='cancelada'?'Reserva cancelada.':'Solicitacao de cancelamento registrada. Nenhum estorno foi realizado.');}catch(Throwable){flash('error','Nao foi possivel alterar a reserva.');}
+        $motivo=$this->motivo(false);
+        try{$resultado=(new CancelamentoReservaService())->cancelarUsuario($rid,(int)Auth::user()['id'],null,$motivo);flash('success',empty($resultado['reembolso_id'])?'Reserva cancelada.':'Reserva cancelada e reembolso solicitado.');}catch(Throwable$e){flash('error',$e->getMessage());}
         $this->redirect('/cliente/reserva/'.$rid);
     }
 

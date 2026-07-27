@@ -1,0 +1,36 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__).'/scripts/bootstrap.php';
+use App\Core\Database;use App\Services\FakeAsaasClient;use App\Services\PrecificacaoReservaService;
+$db=Database::getConnection();$root=dirname(__DIR__);$checks=[];$ok=function(string$n,bool$v)use(&$checks){$checks[$n]=$v;};
+$pricing=new PrecificacaoReservaService($db);$q=$pricing->cotar(100000,1,'PIX',1);
+$ok('01_comissao_reserva_zero',$q['taxa_plataforma_centavos']===0);
+$ok('02_sem_gross_up',$q['valor_total_cliente_centavos']===$q['valor_reserva_centavos']+$q['taxa_operacao_pix_centavos']);
+$ok('03_total_1000_mais_2',$q['valor_total_cliente_centavos']===100200);
+$ok('04_proprietario_integral',$q['valor_liquido_proprietario_centavos']===100000);
+$ok('05_pix_unico',$q['forma_pagamento']==='PIX'&&$q['quantidade_parcelas']===1);
+foreach(['CREDIT_CARD','BOLETO']as$f){try{$pricing->cotar(100000,1,$f,1);$ok('recusa_'.$f,false);}catch(Throwable){$ok('recusa_'.$f,true);}}
+$controller=(string)file_get_contents($root.'/app/controllers/ReservaController.php');$helper=(string)file_get_contents($root.'/app/helpers/AsaasHelper.php');$webhook=(string)file_get_contents($root.'/app/services/AsaasWebhookService.php');$owner=(string)file_get_contents($root.'/app/controllers/OwnerBillingController.php');$routes=(string)file_get_contents($root.'/app/config/routes.php');$env=(string)file_get_contents($root.'/.env.example');
+$ok('08_checkout_sem_AsaasSplitService',!str_contains($controller,'AsaasSplitService'));
+$ok('08a_rejeita_billingType_manipulado',str_contains($controller,"'billingType'")&&str_contains($controller,"'billing_type'"));
+$ok('08b_rejeita_parcelas_manipuladas',str_contains($controller,"quantidade_parcelas'])&&(int)")&&str_contains($controller,"!==1"));
+$ok('09_helper_sem_payload_split',!str_contains($helper,"['split']")&&!str_contains($helper,"['splits']"));
+$ok('10_webhook_sem_evento_split',!str_contains($webhook,'PAYMENT_SPLIT_'));
+$ok('11_owner_usa_repasses',str_contains($owner,'repasses_reservas')&&!str_contains($owner,'asaas_splits'));
+$ok('12_sem_rota_split',!str_contains($routes,'/admin/splits'));
+$ok('13_sem_flags_split',!str_contains($env,'ASAAS_ENABLE_SPLIT')&&!str_contains($env,'ASAAS_SPLIT_DRY_RUN_ONLY'));
+$ok('14_servico_morto_removido',!is_file($root.'/app/services/AsaasSplitService.php'));
+$ok('15_executor_morto_removido',!is_file($root.'/app/services/AsaasSplitExecutionService.php'));
+$ok('16_tabela_historica_preservada',(bool)$db->query("SELECT to_regclass('public.asaas_splits') IS NOT NULL")->fetchColumn());
+$ok('17_historico_preservado',(bool)$db->query("SELECT to_regclass('public.historico_asaas_splits') IS NOT NULL")->fetchColumn());
+$ok('18_zero_novos_splits',(int)$db->query('SELECT count(*) FROM asaas_splits')->fetchColumn()===0);
+$fake=new FakeAsaasClient();$fake->criarCobranca(['billingType'=>'PIX','value'=>'1002.00','externalReference'=>'reserva_fake']);
+$ok('19_fake_sem_split',!isset($fake->ultimoPayloadCobranca['split'],$fake->ultimoPayloadCobranca['splits']));
+$ok('20_sem_chamada_real',$fake->cobrancasCriadas===1);
+$migration=(string)file_get_contents($root.'/database/asaas_split_migration.sql');
+$ok('21_migration_historica_sem_drop',!preg_match('/\b(DROP TABLE|TRUNCATE)\b/i',$migration));
+$ok('22_reservas_historicas_presentes',(bool)$db->query('SELECT count(*)=2 FROM reservas WHERE id IN(2,5)')->fetchColumn());
+$ok('23_webhook_autenticado',str_contains((string)file_get_contents($root.'/public/webhook_asaas.php'),'asaas-access-token'));
+$ok('24_webhook_idempotente',str_contains((string)file_get_contents($root.'/database/asaas_webhook_migration.sql'),'uq_asaas_webhook_event_id'));
+$ok('25_home_rota',str_contains($routes,"get('/',"));$ok('26_assets_intactos',is_file($root.'/public/assets/css/style.css')&&is_file($root.'/public/assets/js/main.js'));
+$fail=0;foreach($checks as$n=>$v){echo($v?'[OK] ':'[FALHA] ').$n.PHP_EOL;if(!$v)$fail++;}echo'TOTAL='.count($checks).' FALHAS='.$fail.PHP_EOL;exit($fail?1:0);

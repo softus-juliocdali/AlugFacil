@@ -36,8 +36,11 @@ $formatarMoeda = static fn (float $valor): string => 'R$ ' . number_format($valo
 </section>
 
 <div class="metric-grid billing-metric-grid">
+    <article><span>Valor previsto</span><strong><?= e($formatarMoeda(((int)$splitResumo['previsto'])/100)) ?></strong><small>Repasses previstos no per&iacute;odo.</small></article>
+    <article><span>Valor pendente</span><strong><?= e($formatarMoeda(((int)$splitResumo['pendente'])/100)) ?></strong><small>Aguardando cr&eacute;dito ou an&aacute;lise.</small></article>
+    <article><span>Valor recebido</span><strong><?= e($formatarMoeda(((int)$splitResumo['recebido'])/100)) ?></strong><small>Somente repasses conclu&iacute;dos.</small></article>
     <article>
-        <span>Total faturado</span>
+        <span>Reservas pagas</span>
         <strong><?= e($formatarMoeda((float) $resumo['total_faturado'])) ?></strong>
         <small>Reservas pagas ou confirmadas no per&iacute;odo.</small>
     </article>

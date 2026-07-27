@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\Controller;
+use App\Core\Database;
 use App\Models\Reserva;
 use DateTimeImmutable;
 
@@ -17,6 +18,9 @@ final class OwnerBillingController extends Controller
         $periodo = (string) ($_GET['periodo'] ?? 'mes');
         [$inicio, $fim, $periodo] = $this->resolverPeriodo($periodo);
         $dados = (new Reserva())->faturamentoPorProprietario($proprietarioId, $inicio, $fim);
+        $q=Database::getConnection()->prepare("SELECT COALESCE(SUM(valor_repasse_centavos),0) previsto,COALESCE(SUM(valor_repasse_centavos) FILTER(WHERE status_local='concluido'),0) recebido,COALESCE(SUM(valor_repasse_centavos) FILTER(WHERE status_local NOT IN ('concluido','cancelado')),0) pendente FROM repasses_reservas WHERE proprietario_id=:p AND criado_em::date BETWEEN :i AND :f");$q->execute(['p'=>$proprietarioId,'i'=>$inicio,'f'=>$fim]);$splitResumo=$q->fetch();
+        $s=Database::getConnection()->prepare("SELECT reserva_id,status_local,valor_repasse_centavos,repasse_liberavel_em,concluido_em,conciliacao_manual FROM repasses_reservas WHERE proprietario_id=:p");$s->execute(['p'=>$proprietarioId]);$repasses=[];foreach($s->fetchAll()as$x)$repasses[(int)$x['reserva_id']]=$x;
+        foreach(['reservas_principais','reservas_pendentes','reservas']as$k)foreach($dados[$k]as&$r)$r['repasse']=$repasses[(int)$r['id']]??null;
 
         $this->view('proprietario/faturamento/index', [
             'title' => 'Faturamento',
@@ -28,6 +32,7 @@ final class OwnerBillingController extends Controller
             'reservasPrincipais' => $dados['reservas_principais'],
             'reservasPendentes' => $dados['reservas_pendentes'],
             'reservas' => $dados['reservas'],
+            'splitResumo'=>$splitResumo,
         ], 'panel');
     }
 

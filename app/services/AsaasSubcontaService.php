@@ -4,7 +4,7 @@ namespace App\Services;
 use App\Core\Database;use DateTimeImmutable;use PDO;use RuntimeException;use Throwable;
 final class AsaasSubcontaService
 {
- public const ACEITE_TEXTO='Autorizo o envio dos dados cadastrais ao Asaas e a criacao de uma conta Asaas vinculada. Estou ciente de que receberei comunicacoes do Asaas, acessarei a conta diretamente no Asaas, o recebimento depende de aprovacao cadastral e pagamentos futuros serao divididos por split. Texto operacional sujeito a revisao juridica.';
+ public const ACEITE_TEXTO='Autorizo o envio dos dados cadastrais ao Asaas e a criacao de uma conta Asaas vinculada. Estou ciente de que receberei comunicacoes do Asaas, acessarei a conta diretamente no Asaas e o recebimento depende de aprovacao cadastral. Texto operacional sujeito a revisao juridica.';
  public function __construct(private AsaasClientInterface $client,private ?PDO $db=null){$this->db??=Database::getConnection();}
  public static function validarDados(array $in):array
  {

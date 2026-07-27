@@ -62,6 +62,7 @@ final class AsaasWebhookService
         if($reserva['status_reserva']==='confirmada')return ['status'=>'processado','erro'=>null];
         if(!ReservaStatusService::podeTransicionar((string)$reserva['status_reserva'],'confirmada')){$this->marcarDivergencia((int)$reserva['id']);return $this->divergencia('Estado atual da reserva nao permite confirmacao.');}
         (new ReservaStatusService($this->db))->transicionar((int)$reserva['id'],'confirmada',['motivo'=>'Pagamento Asaas confirmado','origem'=>'webhook','responsavel_tipo'=>'webhook','metadados'=>['event'=>$tipo]]);
+        $this->db->prepare("UPDATE repasses_reservas SET pagamento_id=(SELECT id FROM pagamentos WHERE reserva_id=:id AND status_pagamento='pago' ORDER BY id DESC LIMIT 1),status_local=CASE WHEN repasse_liberavel_em<=CURRENT_TIMESTAMP THEN 'liberado_para_repasse' ELSE 'aguardando_liberacao' END,atualizado_em=CURRENT_TIMESTAMP WHERE reserva_id=:id AND status_local='aguardando_pagamento'")->execute(['id'=>$reserva['id']]);
         return ['status'=>'processado','erro'=>null];
     }
 

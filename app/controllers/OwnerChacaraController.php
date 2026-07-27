@@ -241,6 +241,10 @@ final class OwnerChacaraController extends Controller
             'endereco' => trim((string) ($_POST['endereco'] ?? '')),
             'latitude' => trim((string) ($_POST['latitude'] ?? '')),
             'longitude' => trim((string) ($_POST['longitude'] ?? '')),
+            'checkin_hora_inicial' => trim((string) ($_POST['checkin_hora_inicial'] ?? '')),
+            'checkin_hora_final' => trim((string) ($_POST['checkin_hora_final'] ?? '')),
+            'checkout_hora_inicial' => trim((string) ($_POST['checkout_hora_inicial'] ?? '')),
+            'checkout_hora_final' => trim((string) ($_POST['checkout_hora_final'] ?? '')),
         ];
 
         set_old($dados);
@@ -264,6 +268,8 @@ final class OwnerChacaraController extends Controller
             flash('error', 'Informe cidade e endereco.');
             $this->redirect($redirect);
         }
+        foreach(['checkin_hora_inicial','checkin_hora_final','checkout_hora_inicial','checkout_hora_final'] as $campo)if(!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/',$dados[$campo])){flash('error','Informe todos os horarios da hospedagem.');$this->redirect($redirect);}
+        if($dados['checkin_hora_inicial'] >= $dados['checkin_hora_final']||$dados['checkout_hora_inicial'] >= $dados['checkout_hora_final']){flash('error','O horario inicial deve ser anterior ao horario final.');$this->redirect($redirect);}
 
         $latitude = $this->normalizarCoordenada($dados['latitude'], -90, 90, 'latitude', $redirect);
         $longitude = $this->normalizarCoordenada($dados['longitude'], -180, 180, 'longitude', $redirect);
@@ -278,6 +284,8 @@ final class OwnerChacaraController extends Controller
             'endereco' => $dados['endereco'],
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'checkin_hora_inicial'=>$dados['checkin_hora_inicial'],'checkin_hora_final'=>$dados['checkin_hora_final'],
+            'checkout_hora_inicial'=>$dados['checkout_hora_inicial'],'checkout_hora_final'=>$dados['checkout_hora_final'],
         ];
     }
 

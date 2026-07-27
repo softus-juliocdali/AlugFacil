@@ -160,10 +160,10 @@ final class Chacara extends Model
             <<<'SQL'
                 INSERT INTO chacaras
                     (proprietario_id, nome, descricao, tipo_imovel, valor_diaria, cidade, regiao,
-                     endereco, latitude, longitude, status, status_aprovacao, status_operacional)
+                     endereco, latitude, longitude, checkin_hora_inicial,checkin_hora_final,checkout_hora_inicial,checkout_hora_final,status, status_aprovacao, status_operacional)
                 VALUES
                     (:proprietario_id, :nome, :descricao, :tipo_imovel, :valor_diaria, :cidade, :regiao,
-                      :endereco, :latitude, :longitude, 'pendente', 'pendente', 'indisponivel')
+                      :endereco, :latitude, :longitude,:ci,:cf,:coi,:cof,'pendente', 'pendente', 'indisponivel')
                 RETURNING id
                 SQL
         );
@@ -178,6 +178,7 @@ final class Chacara extends Model
             'endereco' => $dados['endereco'],
             'latitude' => $dados['latitude'],
             'longitude' => $dados['longitude'],
+            'ci'=>$dados['checkin_hora_inicial'],'cf'=>$dados['checkin_hora_final'],'coi'=>$dados['checkout_hora_inicial'],'cof'=>$dados['checkout_hora_final'],
         ]);
 
         return (int) $statement->fetchColumn();
@@ -199,6 +200,7 @@ final class Chacara extends Model
                     endereco = :endereco,
                     latitude = :latitude,
                     longitude = :longitude
+                    ,checkin_hora_inicial=:ci,checkin_hora_final=:cf,checkout_hora_inicial=:coi,checkout_hora_final=:cof
                 WHERE id = :id AND proprietario_id = :proprietario_id
                 SQL
         );
@@ -214,6 +216,7 @@ final class Chacara extends Model
             'endereco' => $dados['endereco'],
             'latitude' => $dados['latitude'],
             'longitude' => $dados['longitude'],
+            'ci'=>$dados['checkin_hora_inicial'],'cf'=>$dados['checkin_hora_final'],'coi'=>$dados['checkout_hora_inicial'],'cof'=>$dados['checkout_hora_final'],
         ]);
 
         return $statement->rowCount() > 0;

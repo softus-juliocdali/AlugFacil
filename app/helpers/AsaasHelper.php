@@ -60,14 +60,13 @@ final class AsaasHelper
 
         $payload=[
             'customer' => $cliente['id'] ?? '',
-            'billingType' => $dadosReserva['billing_type'] ?? '',
+            'billingType' => 'PIX',
             'value' => $valor,
             'dueDate' => $vencimento,
             'description' => $this->descricaoCobranca($dadosReserva),
             'externalReference' => 'reserva_' . (int) ($dadosReserva['id'] ?? 0),
         ];
-        if($payload['billingType']==='CREDIT_CARD'&&(int)($dadosReserva['quantidade_parcelas']??1)>1){$payload['installmentCount']=(int)$dadosReserva['quantidade_parcelas'];$payload['totalValue']=$valor;unset($payload['value']);}
-        if(!in_array($payload['billingType'],['PIX','CREDIT_CARD'],true))throw new RuntimeException('Forma de pagamento da reserva invalida.');
+        if(isset($dadosReserva['billing_type'])&&strtoupper((string)$dadosReserva['billing_type'])!=='PIX')throw new RuntimeException('Reservas aceitam exclusivamente PIX.');
         return $this->request('POST','/payments',$payload);
     }
 

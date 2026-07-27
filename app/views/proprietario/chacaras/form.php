@@ -41,6 +41,11 @@ $tiposLabels = [
                 <?php endforeach; ?>
             </select>
         </label>
+        <div class="form-full"><h2>Hor&aacute;rios da hospedagem</h2></div>
+        <label>Check-in &mdash; a partir das<input type="time" name="checkin_hora_inicial" value="<?= e($value('checkin_hora_inicial','14:00')) ?>" required></label>
+        <label>Check-in &mdash; at&eacute; as<input type="time" name="checkin_hora_final" value="<?= e($value('checkin_hora_final','18:00')) ?>" required></label>
+        <label>Check-out &mdash; a partir das<input type="time" name="checkout_hora_inicial" value="<?= e($value('checkout_hora_inicial','08:00')) ?>" required></label>
+        <label>Check-out &mdash; at&eacute; as<input type="time" name="checkout_hora_final" value="<?= e($value('checkout_hora_final','11:00')) ?>" required></label>
 
         <label class="form-full">
             Descri&ccedil;&atilde;o

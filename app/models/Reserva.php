@@ -26,6 +26,10 @@ final class Reserva extends Model
                     c.endereco,
                     c.foto_principal,
                     c.proprietario_id,
+                    COALESCE(c.checkin_hora_inicial,TIME '14:00') AS checkin_hora_inicial,
+                    COALESCE(c.checkin_hora_final,TIME '18:00') AS checkin_hora_final,
+                    COALESCE(c.checkout_hora_inicial,TIME '08:00') AS checkout_hora_inicial,
+                    COALESCE(c.checkout_hora_final,TIME '11:00') AS checkout_hora_final,
                     COALESCE(
                         (
                             SELECT cf.caminho_foto
@@ -146,6 +150,9 @@ final class Reserva extends Model
                             plataforma_percentual_bps, plataforma_fixa_centavos, gateway_percentual_bps,
                             gateway_fixa_centavos, margem_seguranca_bps, forma_pagamento, quantidade_parcelas,
                             versao_precificacao, origem_precificacao, precificacao_detalhes, precificado_em
+                            ,taxa_operacao_pix_snapshot_centavos,checkin_hora_inicial_snapshot,checkin_hora_final_snapshot,
+                            checkout_hora_inicial_snapshot,checkout_hora_final_snapshot,checkin_inicio_em,
+                            cancelamento_permitido_ate,repasse_liberavel_em,status_repasse,aceite_reserva_menos_24h
                         )
                     VALUES
                         (
@@ -161,7 +168,10 @@ final class Reserva extends Model
                             'pendente', CURRENT_TIMESTAMP + (:expiracao_minutos * INTERVAL '1 minute'),
                             :vd_centavos,:hospedagem,:liquido,:plataforma,:gateway,:total_cliente,
                             :plataforma_bps,:plataforma_fixa,:gateway_bps,:gateway_fixa,:margem_bps,
-                            :forma,:parcelas,:versao,'nova',CAST(:detalhes AS JSONB),CURRENT_TIMESTAMP
+                            :forma,:parcelas,:versao,'pix_operacao_v1',CAST(:detalhes AS JSONB),CURRENT_TIMESTAMP
+                            ,:taxa_operacao,:ci,:cf,:coi,:cof,
+                            :checkin_inicio,:cancel_limit,:repasse_limit,
+                            'aguardando_pagamento',:aceite_menos_24h
                         )
                     RETURNING id
                     SQL
@@ -183,9 +193,14 @@ final class Reserva extends Model
                 'margem_bps'=>$dados['margem_seguranca_bps'],'forma'=>$dados['forma_pagamento'],'parcelas'=>$dados['quantidade_parcelas'],
                 'versao'=>$dados['versao_precificacao'],'detalhes'=>json_encode($dados['precificacao_detalhes'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
                 'expiracao_minutos' => max(5, min(1440, (int) (getenv('RESERVA_EXPIRACAO_MINUTOS') ?: 30))),
+                'taxa_operacao'=>$dados['taxa_operacao_pix_centavos'],'ci'=>$dados['checkin_hora_inicial_snapshot'],
+                'cf'=>$dados['checkin_hora_final_snapshot'],'coi'=>$dados['checkout_hora_inicial_snapshot'],'cof'=>$dados['checkout_hora_final_snapshot'],
+                'aceite_menos_24h'=>$dados['aceite_reserva_menos_24h'],
+                'checkin_inicio'=>$dados['checkin_inicio_em'],'cancel_limit'=>$dados['cancelamento_permitido_ate'],'repasse_limit'=>$dados['repasse_liberavel_em'],
             ]);
 
             $id = (int) $statement->fetchColumn();
+            $this->db->prepare("INSERT INTO repasses_reservas(reserva_id,proprietario_id,valor_reserva_centavos,valor_repasse_centavos,repasse_liberavel_em,status_local,external_reference) SELECT id,proprietario_id,valor_hospedagem_centavos,valor_hospedagem_centavos,repasse_liberavel_em,'aguardando_pagamento','repasse_reserva_'||id FROM reservas WHERE id=:id ON CONFLICT(reserva_id) DO NOTHING")->execute(['id'=>$id]);
             (new ReservaStatusService($this->db))->registrarInicial($id);
             $this->db->commit();
 
@@ -304,13 +319,13 @@ final class Reserva extends Model
 
     public function buscarDetalheProprietario(int $id, int $proprietarioId): ?array
     {
-        $s=$this->db->prepare('SELECT r.*,c.nome AS chacara_nome,u.nome AS cliente_nome,u.email AS cliente_email FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id WHERE r.id=:id AND r.proprietario_id=:proprietario LIMIT 1');
+        $s=$this->db->prepare('SELECT r.*,c.nome AS chacara_nome,u.nome AS cliente_nome,u.email AS cliente_email,(SELECT status_local FROM repasses_reservas WHERE reserva_id=r.id) AS repasse_status,(SELECT valor_repasse_centavos FROM repasses_reservas WHERE reserva_id=r.id) AS valor_repasse_centavos FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id WHERE r.id=:id AND r.proprietario_id=:proprietario LIMIT 1');
         $s->execute(['id'=>$id,'proprietario'=>$proprietarioId]); return $s->fetch(PDO::FETCH_ASSOC)?:null;
     }
 
     public function buscarDetalheAdministrativo(int $id): ?array
     {
-        $s=$this->db->prepare('SELECT r.*,c.nome AS chacara_nome,u.nome AS cliente_nome,u.email AS cliente_email,p.nome AS proprietario_nome FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id JOIN proprietarios p ON p.id=r.proprietario_id WHERE r.id=:id LIMIT 1');
+        $s=$this->db->prepare('SELECT r.*,c.nome AS chacara_nome,u.nome AS cliente_nome,u.email AS cliente_email,p.nome AS proprietario_nome,(SELECT status_local FROM repasses_reservas WHERE reserva_id=r.id) AS repasse_status,(SELECT status_local FROM reembolsos_reservas WHERE reserva_id=r.id ORDER BY id DESC LIMIT 1) AS reembolso_status FROM reservas r JOIN chacaras c ON c.id=r.chacara_id JOIN usuarios u ON u.id=r.usuario_id JOIN proprietarios p ON p.id=r.proprietario_id WHERE r.id=:id LIMIT 1');
         $s->execute(['id'=>$id]); return $s->fetch(PDO::FETCH_ASSOC)?:null;
     }
 

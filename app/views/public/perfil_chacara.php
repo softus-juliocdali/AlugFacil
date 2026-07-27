@@ -78,6 +78,7 @@ $googleMapsEmbedUrl = (string) ($googleMapsEmbedUrl ?? '');
                         <div><span>Região</span><strong><?= e($chacara['regiao'] ?: 'Não informada') ?></strong></div>
                         <div><span>Endereço / referência</span><strong><?= e($chacara['endereco'] ?: 'Localização aproximada') ?></strong></div>
                     </div>
+                    <?php if(!empty($chacara['checkin_hora_inicial'])):?><div class="location-facts"><div><span>Entrada</span><strong>das <?= e(substr($chacara['checkin_hora_inicial'],0,5)) ?> &agrave;s <?= e(substr($chacara['checkin_hora_final'],0,5)) ?></strong></div><div><span>Sa&iacute;da</span><strong>das <?= e(substr($chacara['checkout_hora_inicial'],0,5)) ?> &agrave;s <?= e(substr($chacara['checkout_hora_final'],0,5)) ?></strong></div></div><?php endif;?>
                 </section>
 
                 <section class="profile-section" id="disponibilidade">
