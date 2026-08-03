@@ -8,6 +8,12 @@ $tiposLabels = [
     'sitio' => 'S&iacute;tio',
     'area_lazer' => '&Aacute;rea de lazer',
 ];
+$formatarStatusAprovacao = static fn (string $status): string => match ($status) {
+    'pendente' => 'Aguardando aprovação',
+    'aprovada' => 'Aprovada',
+    'rejeitada' => 'Reprovada',
+    default => ucfirst(str_replace('_', ' ', $status)),
+};
 ?>
 <div class="panel-page-heading">
     <div>
@@ -91,7 +97,7 @@ $tiposLabels = [
 
         <label>
             Status de aprova&ccedil;&atilde;o
-            <input type="text" value="<?= e(ucfirst((string) ($chacara['status_aprovacao'] ?? 'pendente'))) ?>" disabled>
+            <input type="text" value="<?= e($formatarStatusAprovacao((string) ($chacara['status_aprovacao'] ?? 'pendente'))) ?>" disabled>
         </label>
 
         <div class="form-actions">

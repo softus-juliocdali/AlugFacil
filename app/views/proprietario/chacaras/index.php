@@ -1,5 +1,11 @@
 <?php
 $formatarStatus = static fn (string $status): string => ucfirst(str_replace('_', ' ', $status));
+$formatarStatusAprovacao = static fn (string $status): string => match ($status) {
+    'pendente' => 'Aguardando aprovação',
+    'aprovada' => 'Aprovada',
+    'rejeitada' => 'Reprovada',
+    default => ucfirst(str_replace('_', ' ', $status)),
+};
 ?>
 <div class="panel-page-heading">
     <div>
@@ -52,6 +58,7 @@ $formatarStatus = static fn (string $status): string => ucfirst(str_replace('_',
                             <td>R$ <?= e(number_format((float) $chacara['valor_diaria'], 2, ',', '.')) ?></td>
                             <td>
                                 <?php if ($chacara['status_aprovacao'] === 'aprovada'): ?>
+                                <span class="status-pill"><?= e($formatarStatusAprovacao($chacara['status_aprovacao'])) ?></span>
                                 <form class="inline-status-form" method="post" action="<?= url('/proprietario/chacaras/status/' . (int) $chacara['id']) ?>">
                                     <?= csrf_field() ?>
                                     <select name="status" onchange="this.form.submit()" aria-label="Alterar status">
@@ -61,7 +68,7 @@ $formatarStatus = static fn (string $status): string => ucfirst(str_replace('_',
                                     </select>
                                 </form>
                                 <?php else: ?>
-                                    <span class="status-pill"><?= e($formatarStatus($chacara['status_aprovacao'])) ?></span>
+                                    <span class="status-pill"><?= e($formatarStatusAprovacao($chacara['status_aprovacao'])) ?></span>
                                 <?php endif; ?>
                             </td>
                             <td><?= e((string) (int) $chacara['total_fotos']) ?></td>

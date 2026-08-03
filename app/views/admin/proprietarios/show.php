@@ -41,12 +41,14 @@ $transicoes = [
             <div><dt>Atualizacao</dt><dd><?= e($formatarData($proprietario['data_atualizacao'])) ?></dd></div>
             <div><dt>Chacaras cadastradas</dt><dd><?= e((string) (int) $proprietario['total_chacaras']) ?></dd></div>
         </dl>
-        <form class="admin-status-action" method="post" action="<?= url('/admin/proprietarios/' . (int) $proprietario['id'] . '/status') ?>">
+        <form class="admin-status-action owner-property-form" method="post" action="<?= url('/admin/proprietarios/' . (int) $proprietario['id'] . '/status') ?>">
             <?= csrf_field() ?>
-            <label>Motivo <input type="text" name="motivo" value="<?= e($proprietario['motivo_status'] ?? '') ?>"></label>
-            <?php foreach ($transicoes[$proprietario['status']] ?? [] as $status => $rotulo): ?>
-                <button class="btn <?= in_array($status, ['bloqueado', 'rejeitado'], true) ? 'btn-danger' : 'btn-primary' ?>" type="submit" name="status" value="<?= e($status) ?>"><?= e($rotulo) ?></button>
-            <?php endforeach; ?>
+            <label class="form-full">Motivo <input type="text" name="motivo" value="<?= e($proprietario['motivo_status'] ?? '') ?>"></label>
+            <div class="form-actions">
+                <?php foreach ($transicoes[$proprietario['status']] ?? [] as $status => $rotulo): ?>
+                    <button class="btn <?= in_array($status, ['bloqueado', 'rejeitado'], true) ? 'btn-danger' : 'btn-primary' ?>" type="submit" name="status" value="<?= e($status) ?>"><?= e($rotulo) ?></button>
+                <?php endforeach; ?>
+            </div>
         </form>
     </article>
 

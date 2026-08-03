@@ -1,7 +1,7 @@
 <?php $label = static fn (string $valor): string => ucfirst(str_replace('_', ' ', $valor)); ?>
 <div class="panel-page-heading"><div><span>Administracao</span><h1>Im&oacute;veis</h1><p>Aprova&ccedil;&atilde;o e bloqueio dos im&oacute;veis cadastrados.</p></div></div>
 <section class="panel-card">
-    <form class="panel-filters" method="get" action="<?= url('/admin/chacaras') ?>">
+    <form class="billing-filter-form" method="get" action="<?= url('/admin/chacaras') ?>">
         <label>Status <select name="status"><option value="">Todos</option><?php foreach (['pendente','aprovada','rejeitada','bloqueada'] as $opcao): ?><option value="<?= e($opcao) ?>" <?= $status === $opcao ? 'selected' : '' ?>><?= e($label($opcao)) ?></option><?php endforeach; ?></select></label>
         <button class="btn btn-primary" type="submit">Filtrar</button>
     </form>
