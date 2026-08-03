@@ -590,7 +590,7 @@ final class User extends Model
                 'nome' => $data['nome'],
                 'telefone' => $data['telefone'] ?: null,
                 'email' => $data['email'],
-                'status' => 'pendente',
+                'status' => 'ativo',
             ]);
             $this->db->commit();
             return $userId;

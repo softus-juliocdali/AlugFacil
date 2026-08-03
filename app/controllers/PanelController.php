@@ -262,15 +262,8 @@ final class PanelController extends Controller
 
     public function statusProprietario(): void
     {
-        $proprietario = Auth::requireProprietarioAutenticado();
-        if ($proprietario['status'] === 'ativo' && $proprietario['usuario_status'] === 'ativo') {
-            $this->redirect('/proprietario/dashboard');
-        }
-        $this->view('proprietario/status', [
-            'title' => 'Status do cadastro',
-            'panelRole' => 'proprietario',
-            'proprietario' => $this->corrigirCodificacao($proprietario),
-        ], 'panel');
+        Auth::requireProprietarioAutenticado();
+        $this->redirect('/proprietario/dashboard');
     }
 
     public function admin(): void

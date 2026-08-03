@@ -25,7 +25,6 @@ final class Chacara extends Model
              WHERE c.id = :id
                AND c.status_aprovacao = 'aprovada'
                AND c.status_operacional = 'disponivel'
-               AND p.status = 'ativo'
                AND u.status = 'ativo'
              LIMIT 1"
         );
@@ -683,7 +682,6 @@ final class Chacara extends Model
                 WHERE f.usuario_id = :usuario_id
                   AND c.status_aprovacao = 'aprovada'
                   AND c.status_operacional = 'disponivel'
-                  AND p.status = 'ativo'
                   AND u.status = 'ativo'
                 ORDER BY f.data_cadastro DESC, c.nome ASC
                 SQL
@@ -765,7 +763,6 @@ final class Chacara extends Model
         $condicoes = [
             "c.status_aprovacao = 'aprovada'",
             "c.status_operacional = 'disponivel'",
-            "p.status = 'ativo'",
             "u.status = 'ativo'",
         ];
         $parametros = [];
@@ -935,7 +932,7 @@ final class Chacara extends Model
                 $this->db->rollBack();
                 return false;
             }
-            if ($status === 'aprovada' && ($atual['proprietario_status'] !== 'ativo' || $atual['usuario_status'] !== 'ativo')) {
+            if ($status === 'aprovada' && $atual['usuario_status'] !== 'ativo') {
                 $this->db->rollBack();
                 return false;
             }

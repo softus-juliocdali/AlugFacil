@@ -46,7 +46,6 @@ final class Reserva extends Model
                 WHERE c.id = :id
                   AND c.status_aprovacao = 'aprovada'
                   AND c.status_operacional = 'disponivel'
-                  AND p.status = 'ativo'
                   AND pu.status = 'ativo'
                 LIMIT 1
                 SQL

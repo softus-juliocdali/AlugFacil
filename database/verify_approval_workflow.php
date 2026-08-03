@@ -25,7 +25,7 @@ $checks = [
     'constraint_proprietario_aceita_rejeitado' => "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'proprietarios'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%rejeitado%')",
     'constraint_imovel_aceita_rejeitada' => "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'chacaras'::regclass AND conname = 'chk_chacaras_status_aprovacao' AND pg_get_constraintdef(oid) LIKE '%rejeitada%')",
     'mapeamento_completo' => "SELECT NOT EXISTS (SELECT 1 FROM chacaras WHERE status_aprovacao IS NULL OR status_operacional IS NULL)",
-    'publicacao_sem_dono_ativo' => "SELECT NOT EXISTS (SELECT 1 FROM chacaras c JOIN proprietarios p ON p.id=c.proprietario_id JOIN usuarios u ON u.id=p.usuario_id WHERE c.status_aprovacao='aprovada' AND c.status_operacional='disponivel' AND (p.status<>'ativo' OR u.status<>'ativo'))",
+    'publicacao_exige_conta_ativa' => "SELECT NOT EXISTS (SELECT 1 FROM chacaras c JOIN proprietarios p ON p.id=c.proprietario_id JOIN usuarios u ON u.id=p.usuario_id WHERE c.status_aprovacao='aprovada' AND c.status_operacional='disponivel' AND u.status<>'ativo')",
 ];
 
 $falhas = 0;
@@ -48,6 +48,8 @@ try {
         'nome' => 'Imovel de teste', 'descricao' => '', 'tipo_imovel' => 'chacara',
         'valor_diaria' => '100.00', 'cidade' => 'Teste', 'regiao' => '', 'endereco' => 'Teste',
         'latitude' => null, 'longitude' => null, 'status' => 'disponivel',
+        'checkin_hora_inicial' => '14:00', 'checkin_hora_final' => '18:00',
+        'checkout_hora_inicial' => '08:00', 'checkout_hora_final' => '11:00',
     ]);
     $novo = $db->query("SELECT status_aprovacao, status_operacional FROM chacaras WHERE id = {$chacaraId}")->fetch();
     $testesTransacionais = [

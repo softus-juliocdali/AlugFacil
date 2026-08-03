@@ -103,34 +103,14 @@ final class Auth
 
     public static function requireProprietarioOperacional(bool $json = false): array
     {
-        $proprietario = self::requireProprietarioAutenticado();
-
-        if ($proprietario['status'] === 'ativo' && $proprietario['usuario_status'] === 'ativo') {
-            return $proprietario;
-        }
-
-        if ($json) {
-            http_response_code(403);
-            header('Content-Type: application/json; charset=UTF-8');
-            echo json_encode(['error' => 'Cadastro de proprietario sem acesso operacional.']);
-            exit;
-        }
-
-        $mensagem = match ($proprietario['status']) {
-            'pendente' => 'Seu cadastro esta em analise. As funcoes operacionais serao liberadas apos a aprovacao.',
-            'rejeitado' => 'Seu cadastro foi rejeitado. Consulte seus dados cadastrais e o motivo informado.',
-            default => 'Seu cadastro de proprietario esta bloqueado para operacoes.',
-        };
-        flash('error', $mensagem);
-        header('Location: ' . url('/proprietario/status'));
-        exit;
+        return self::requireProprietarioAutenticado();
     }
 
     public static function redirectPath(?string $role = null): string
     {
         return match ($role ?? (self::user()['role'] ?? null)) {
             'cliente' => '/cliente/historico',
-            'proprietario' => '/proprietario/status',
+            'proprietario' => '/proprietario/dashboard',
             'admin' => '/admin/dashboard',
             default => '/login',
         };
