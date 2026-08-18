@@ -38,6 +38,7 @@ $formatarData = static fn (string $data): string => date('d/m/Y', strtotime($dat
         <small>Solicitadas ou aguardando pagamento.</small>
     </article>
 </div>
+<?php foreach(($notificacoesMensalidade??[]) as $notificacao): ?><section class="panel-card"><strong><?= e($notificacao['titulo']) ?></strong><p><?= e($notificacao['mensagem']) ?></p><a class="btn btn-outline" href="<?= url('/proprietario/mensalidades') ?>">Ver mensalidade</a></section><?php endforeach; ?>
 
 <div class="owner-dashboard-grid">
     <section class="panel-card">

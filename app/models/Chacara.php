@@ -5,27 +5,35 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Model;
+use App\Services\ReservaStatusService;
 use DateTimeImmutable;
 use PDO;
 use Throwable;
 
 final class Chacara extends Model
 {
-    private static bool $tabelaFavoritosVerificada = false;
-    private static bool $colunaTipoImovelVerificada = false;
+    public static function clausulaElegibilidadePublica(string $alias='c',string $aliasProprietario='p',string $aliasUsuario='u'): string
+    {
+        foreach([$alias,$aliasProprietario,$aliasUsuario] as $sqlAlias)if(!preg_match('/^[a-z][a-z0-9_]*$/i',$sqlAlias))throw new \InvalidArgumentException('Alias SQL invalido.');
+        return "$alias.status_aprovacao = 'aprovada' AND $alias.status_operacional = 'disponivel' AND $aliasUsuario.status = 'ativo' AND NOT EXISTS (SELECT 1 FROM mensalidades_anuncios ma_publica WHERE ma_publica.chacara_id=$alias.id AND ma_publica.ativa=TRUE AND ma_publica.status<>'EM_DIA')";
+    }
+
+    public static function elegivelPublicamente(array $chacara,?array $mensalidade=null):bool
+    {
+        $base=($chacara['status_aprovacao']??null)==='aprovada'&&($chacara['status_operacional']??null)==='disponivel'&&($chacara['usuario_status']??null)==='ativo';
+        if(!$base)return false;
+        $ativa=($mensalidade['ativa']??false)===true||in_array($mensalidade['ativa']??null,[1,'1','t','true'],true);
+        return !$ativa||($mensalidade['status']??null)==='EM_DIA';
+    }
 
     public function buscarPerfil(int $id): ?array
     {
-        $this->garantirColunaTipoImovel();
-
         $statement = $this->db->prepare(
             "SELECT c.* FROM chacaras c
              INNER JOIN proprietarios p ON p.id = c.proprietario_id
              INNER JOIN usuarios u ON u.id = p.usuario_id
              WHERE c.id = :id
-               AND c.status_aprovacao = 'aprovada'
-               AND c.status_operacional = 'disponivel'
-               AND u.status = 'ativo'
+               AND " . self::clausulaElegibilidadePublica() . "
              LIMIT 1"
         );
         $statement->execute(['id' => $id]);
@@ -96,8 +104,6 @@ final class Chacara extends Model
 
     public function listarPorProprietario(int $proprietarioId): array
     {
-        $this->garantirColunaTipoImovel();
-
         $statement = $this->db->prepare(
             <<<'SQL'
                 SELECT
@@ -107,6 +113,7 @@ final class Chacara extends Model
                     c.tipo_imovel,
                     c.valor_diaria,
                     c.cidade,
+                    c.estado,
                     c.regiao,
                     c.endereco,
                     c.latitude,
@@ -117,12 +124,15 @@ final class Chacara extends Model
                     c.motivo_status,
                     c.foto_principal,
                     c.data_atualizacao,
+                    COALESCE(m.status,'SEM_MENSALIDADE') AS mensalidade_status,
+                    m.valor_centavos AS mensalidade_valor_centavos,
                     (
                         SELECT COUNT(*)
                         FROM chacara_fotos cf
                         WHERE cf.chacara_id = c.id
                     ) AS total_fotos
                 FROM chacaras c
+                LEFT JOIN mensalidades_anuncios m ON m.chacara_id=c.id
                 WHERE c.proprietario_id = :proprietario_id
                 ORDER BY c.data_cadastro DESC, c.id DESC
                 SQL
@@ -134,8 +144,6 @@ final class Chacara extends Model
 
     public function buscarDoProprietario(int $id, int $proprietarioId): ?array
     {
-        $this->garantirColunaTipoImovel();
-
         $statement = $this->db->prepare(
             'SELECT *
              FROM chacaras
@@ -153,15 +161,13 @@ final class Chacara extends Model
 
     public function criarParaProprietario(int $proprietarioId, array $dados): int
     {
-        $this->garantirColunaTipoImovel();
-
         $statement = $this->db->prepare(
             <<<'SQL'
                 INSERT INTO chacaras
-                    (proprietario_id, nome, descricao, tipo_imovel, valor_diaria, cidade, regiao,
+                    (proprietario_id, nome, descricao, tipo_imovel, valor_diaria, cidade, estado, regiao,
                      endereco, latitude, longitude, checkin_hora_inicial,checkin_hora_final,checkout_hora_inicial,checkout_hora_final,status, status_aprovacao, status_operacional)
                 VALUES
-                    (:proprietario_id, :nome, :descricao, :tipo_imovel, :valor_diaria, :cidade, :regiao,
+                    (:proprietario_id, :nome, :descricao, :tipo_imovel, :valor_diaria, :cidade, :estado, :regiao,
                       :endereco, :latitude, :longitude,:ci,:cf,:coi,:cof,'pendente', 'pendente', 'indisponivel')
                 RETURNING id
                 SQL
@@ -173,6 +179,7 @@ final class Chacara extends Model
             'tipo_imovel' => $dados['tipo_imovel'],
             'valor_diaria' => $dados['valor_diaria'],
             'cidade' => $dados['cidade'],
+            'estado' => $dados['estado'] ?? null,
             'regiao' => $dados['regiao'] ?: null,
             'endereco' => $dados['endereco'],
             'latitude' => $dados['latitude'],
@@ -185,8 +192,6 @@ final class Chacara extends Model
 
     public function atualizarDoProprietario(int $id, int $proprietarioId, array $dados): bool
     {
-        $this->garantirColunaTipoImovel();
-
         $statement = $this->db->prepare(
             <<<'SQL'
                 UPDATE chacaras
@@ -195,6 +200,7 @@ final class Chacara extends Model
                     tipo_imovel = :tipo_imovel,
                     valor_diaria = :valor_diaria,
                     cidade = :cidade,
+                    estado = :estado,
                     regiao = :regiao,
                     endereco = :endereco,
                     latitude = :latitude,
@@ -211,6 +217,7 @@ final class Chacara extends Model
             'tipo_imovel' => $dados['tipo_imovel'],
             'valor_diaria' => $dados['valor_diaria'],
             'cidade' => $dados['cidade'],
+            'estado' => $dados['estado'] ?? null,
             'regiao' => $dados['regiao'] ?: null,
             'endereco' => $dados['endereco'],
             'latitude' => $dados['latitude'],
@@ -391,7 +398,7 @@ final class Chacara extends Model
 
     public function buscarDatasIndisponiveis(int $chacaraId, string $inicio, string $fim): array
     {
-        $statement = $this->db->prepare(
+        $statement = $this->db->prepare(sprintf(
             <<<'SQL'
                 SELECT data::text, status
                 FROM disponibilidades
@@ -407,12 +414,12 @@ final class Chacara extends Model
                     interval '1 day'
                 ) AS serie(data)
                 WHERE r.chacara_id = :reserva_chacara_id
-                  AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                  AND r.status_reserva IN (%s)
                   AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                   AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
                 ORDER BY data
                 SQL
-        );
+        , ReservaStatusService::listaSqlBloqueiamDatas()));
         $statement->execute([
             'chacara_id' => $chacaraId,
             'inicio' => $inicio,
@@ -426,7 +433,7 @@ final class Chacara extends Model
 
     public function buscarCalendarioProprietario(int $chacaraId, int $proprietarioId, string $inicio, string $fim): array
     {
-        $statement = $this->db->prepare(
+        $statement = $this->db->prepare(sprintf(
             <<<'SQL'
                 SELECT
                     d.data::text,
@@ -453,12 +460,12 @@ final class Chacara extends Model
                 ) AS serie(data)
                 WHERE r.chacara_id = :reserva_chacara_id
                   AND c.proprietario_id = :reserva_proprietario_id
-                  AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                  AND r.status_reserva IN (%s)
                   AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                   AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
                 ORDER BY data ASC, status DESC
                 SQL
-        );
+        , ReservaStatusService::listaSqlBloqueiamDatas()));
         $statement->execute([
             'chacara_id' => $chacaraId,
             'proprietario_id' => $proprietarioId,
@@ -475,7 +482,7 @@ final class Chacara extends Model
 
     public function existeReservaConfirmadaNoPeriodo(int $chacaraId, int $proprietarioId, string $inicio, string $fim): bool
     {
-        $statement = $this->db->prepare(
+        $statement = $this->db->prepare(sprintf(
             <<<'SQL'
                 SELECT EXISTS (
                     SELECT 1
@@ -483,13 +490,13 @@ final class Chacara extends Model
                     INNER JOIN chacaras c ON c.id = r.chacara_id
                     WHERE r.chacara_id = :chacara_id
                       AND c.proprietario_id = :proprietario_id
-                      AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                      AND r.status_reserva IN (%s)
                       AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                       AND r.data_inicio < :fim
                       AND r.data_fim > :inicio
                 )
                 SQL
-        );
+        , ReservaStatusService::listaSqlBloqueiamDatas()));
         $statement->execute([
             'chacara_id' => $chacaraId,
             'proprietario_id' => $proprietarioId,
@@ -636,8 +643,6 @@ final class Chacara extends Model
 
     public function favoritosDoUsuario(int $usuarioId): array
     {
-        $this->garantirTabelaFavoritos();
-
         $statement = $this->db->prepare(
             'SELECT chacara_id
              FROM favoritos_chacaras
@@ -650,10 +655,7 @@ final class Chacara extends Model
 
     public function listarFavoritosDoUsuario(int $usuarioId): array
     {
-        $this->garantirColunaTipoImovel();
-        $this->garantirTabelaFavoritos();
-
-        $statement = $this->db->prepare(
+        $statement = $this->db->prepare(sprintf(
             <<<'SQL'
                 SELECT
                     c.id,
@@ -680,12 +682,10 @@ final class Chacara extends Model
                 INNER JOIN proprietarios p ON p.id = c.proprietario_id
                 INNER JOIN usuarios u ON u.id = p.usuario_id
                 WHERE f.usuario_id = :usuario_id
-                  AND c.status_aprovacao = 'aprovada'
-                  AND c.status_operacional = 'disponivel'
-                  AND u.status = 'ativo'
+                  AND %s
                 ORDER BY f.data_cadastro DESC, c.nome ASC
                 SQL
-        );
+        , self::clausulaElegibilidadePublica()));
         $statement->execute(['usuario_id' => $usuarioId]);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -693,8 +693,6 @@ final class Chacara extends Model
 
     public function usuarioFavoritou(int $usuarioId, int $chacaraId): bool
     {
-        $this->garantirTabelaFavoritos();
-
         $statement = $this->db->prepare(
             'SELECT EXISTS (
                 SELECT 1
@@ -712,8 +710,6 @@ final class Chacara extends Model
 
     public function alternarFavorito(int $usuarioId, int $chacaraId): bool
     {
-        $this->garantirTabelaFavoritos();
-
         if ($this->usuarioFavoritou($usuarioId, $chacaraId)) {
             $statement = $this->db->prepare(
                 'DELETE FROM favoritos_chacaras
@@ -758,12 +754,8 @@ final class Chacara extends Model
      */
     public function buscarDisponiveis(array $filtros = []): array
     {
-        $this->garantirColunaTipoImovel();
-
         $condicoes = [
-            "c.status_aprovacao = 'aprovada'",
-            "c.status_operacional = 'disponivel'",
-            "u.status = 'ativo'",
+            self::clausulaElegibilidadePublica(),
         ];
         $parametros = [];
 
@@ -806,17 +798,17 @@ final class Chacara extends Model
                       AND d.status IN ('reservado', 'bloqueado')
                 )
                 SQL;
-            $condicoes[] = <<<'SQL'
+            $condicoes[] = sprintf(<<<'SQL'
                 NOT EXISTS (
                     SELECT 1
                     FROM reservas r
                     WHERE r.chacara_id = c.id
-                      AND r.status_reserva IN ('aguardando_pagamento','pagamento_confirmado','confirmada','em_andamento','cancelamento_solicitado','disputa')
+                      AND r.status_reserva IN (%s)
                       AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                       AND r.data_inicio < :reserva_data_fim
                       AND r.data_fim > :reserva_data_inicio
                 )
-                SQL;
+                SQL, ReservaStatusService::listaSqlBloqueiamDatas());
             $parametros['data_inicio'] = $inicio;
             $parametros['data_fim'] = $fim;
             $parametros['reserva_data_inicio'] = $inicio;
@@ -893,9 +885,10 @@ final class Chacara extends Model
         $statement = $this->db->prepare(
             "SELECT c.id, c.nome, c.cidade, c.valor_diaria, c.status_aprovacao,
                     c.status_operacional, c.motivo_status, p.nome AS proprietario_nome,
-                    p.status AS proprietario_status, u.status AS usuario_status
+                    p.status AS proprietario_status, u.status AS usuario_status,
+                    COALESCE(m.status,'SEM_MENSALIDADE') AS mensalidade_status,m.valor_centavos AS mensalidade_valor_centavos
              FROM chacaras c INNER JOIN proprietarios p ON p.id = c.proprietario_id
-             INNER JOIN usuarios u ON u.id = p.usuario_id {$where}
+             INNER JOIN usuarios u ON u.id = p.usuario_id LEFT JOIN mensalidades_anuncios m ON m.chacara_id=c.id {$where}
              ORDER BY c.data_cadastro DESC, c.id DESC"
         );
         $statement->execute($status !== '' ? ['status' => $status] : []);
@@ -956,60 +949,6 @@ final class Chacara extends Model
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $exception;
         }
-    }
-
-    private function garantirTabelaFavoritos(): void
-    {
-        if (self::$tabelaFavoritosVerificada) {
-            return;
-        }
-
-        $this->db->exec(
-            <<<'SQL'
-                CREATE TABLE IF NOT EXISTS favoritos_chacaras (
-                    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                    chacara_id INTEGER NOT NULL REFERENCES chacaras(id) ON DELETE CASCADE,
-                    data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (usuario_id, chacara_id)
-                )
-                SQL
-        );
-        $this->db->exec(
-            'CREATE INDEX IF NOT EXISTS idx_favoritos_chacaras_chacara
-             ON favoritos_chacaras (chacara_id)'
-        );
-
-        self::$tabelaFavoritosVerificada = true;
-    }
-
-    private function garantirColunaTipoImovel(): void
-    {
-        if (self::$colunaTipoImovelVerificada) {
-            return;
-        }
-
-        $this->db->exec(
-            "ALTER TABLE chacaras
-             ADD COLUMN IF NOT EXISTS tipo_imovel VARCHAR(20) NOT NULL DEFAULT 'chacara'"
-        );
-        $this->db->exec(
-            <<<'SQL'
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1
-                        FROM pg_constraint
-                        WHERE conname = 'chk_chacaras_tipo_imovel'
-                    ) THEN
-                        ALTER TABLE chacaras
-                        ADD CONSTRAINT chk_chacaras_tipo_imovel
-                        CHECK (tipo_imovel IN ('chacara', 'sitio', 'area_lazer'));
-                    END IF;
-                END $$;
-                SQL
-        );
-
-        self::$colunaTipoImovelVerificada = true;
     }
 
     public static function periodoValido(string $inicio, string $fim): bool

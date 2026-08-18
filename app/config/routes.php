@@ -7,6 +7,7 @@ use App\Controllers\AsaasWebhookAdminController;
 use App\Controllers\AuthController;
 use App\Controllers\ChacaraController;
 use App\Controllers\HomeController;
+use App\Controllers\MensalidadeAnuncioController;
 use App\Controllers\FinanceConfigController;
 use App\Controllers\FinancialOnboardingController;
 use App\Controllers\OwnerAvailabilityController;
@@ -68,6 +69,8 @@ return static function (Router $router, array $config): void {
     $router->get('/proprietario/disponibilidade/{chacara_id}', [OwnerAvailabilityController::class, 'show']);
     $router->post('/proprietario/disponibilidade/salvar', [OwnerAvailabilityController::class, 'save']);
     $router->get('/proprietario/faturamento', [OwnerBillingController::class, 'index']);
+    $router->get('/proprietario/mensalidades', [MensalidadeAnuncioController::class, 'owner']);
+    $router->get('/proprietario/mensalidades/{id}/pagar', [MensalidadeAnuncioController::class, 'pay']);
     $router->get('/proprietario/recebimentos', [FinancialOnboardingController::class, 'owner']);
     $router->post('/proprietario/recebimentos/dados', [FinancialOnboardingController::class, 'save']);
     $router->post('/proprietario/recebimentos/aceite', [FinancialOnboardingController::class, 'accept']);
@@ -90,6 +93,9 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/chacaras', [AdminController::class, 'chacaras']);
     $router->get('/admin/chacaras/{id}', [AdminController::class, 'chacaraDetalhes']);
     $router->post('/admin/chacaras/{id}/status', [AdminController::class, 'atualizarStatusChacara']);
+    $router->post('/admin/chacaras/{id}/mensalidade', [MensalidadeAnuncioController::class, 'adminUpdate']);
+    $router->get('/admin/mensalidades', [MensalidadeAnuncioController::class, 'admin']);
+    $router->post('/admin/mensalidades/configuracao', [MensalidadeAnuncioController::class, 'adminConfigUpdate']);
     $router->get('/admin/usuarios', [AdminController::class, 'usuarios']);
     $router->get('/admin/usuarios/{id}', [AdminController::class, 'usuarioDetalhes']);
     $router->post('/admin/usuarios/{id}/status', [AdminController::class, 'atualizarStatusUsuario']);

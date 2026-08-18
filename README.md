@@ -179,9 +179,9 @@ A chave do Google Maps é lida em `app/config/apis.php` pela variável `GOOGLE_M
 $env:GOOGLE_MAPS_API_KEY = 'SUA_CHAVE_GOOGLE_MAPS'
 ```
 
-O projeto usa essa chave para montar URLs de mapa no perfil público da chácara. Sem a chave, o sistema continua funcionando, mas os recursos de mapa ficam indisponíveis.
+O projeto usa essa chave no autocomplete e recálculo de coordenadas do formulário do proprietário e para montar URLs de mapa no perfil público da chácara. Sem a chave, o sistema continua funcionando e permite preenchimento manual, mas os recursos automáticos e o mapa ficam indisponíveis.
 
-No Google Cloud, habilite a API necessária para o uso do mapa, como Maps Embed API. Configure também restrições de chave por domínio/IP em ambientes públicos.
+No Google Cloud, habilite Maps JavaScript API, Places API (New) e Maps Embed API. O recálculo usa o geocoder da Maps JavaScript API. Configure também restrições HTTP da chave para os domínios autorizados em ambientes públicos.
 
 ## 10. Como configurar Asaas Sandbox
 
@@ -422,3 +422,14 @@ Após o primeiro acesso, troque a senha do administrador.
 11. Preparar deploy com servidor web dedicado, HTTPS e variáveis de ambiente.
 12. Criar pipeline de lint, testes e validação antes de produção.
 13. Definir e testar uma Content-Security-Policy compatível com mapas, fontes, imagens e integrações externas.
+
+## 18. Mensalidade por anuncio
+
+- Novas aprovacoes administrativas configuram obrigatoriamente uma mensalidade por `chacara_id`.
+- A aprovacao deixa a mensalidade como `PENDENTE`; a publicacao depende do webhook mudar o estado para `EM_DIA`.
+- O valor sugerido vem de `configuracoes_mensalidades_anuncios` e pode ser alterado em `/admin/mensalidades` sem efeito retroativo.
+- O painel consolidado fica em `GET /admin/mensalidades`; o detalhe, as cobrancas e o historico continuam em `GET /admin/chacaras/{id}`.
+- Falhas de sincronizacao deixam um registro local pendente e recuperavel. Uma nova tentativa concilia a assinatura por `externalReference=mensalidade_chacara_{id}`.
+- Webhooks `PAYMENT_CONFIRMED` e `PAYMENT_RECEIVED` tornam a mensalidade `EM_DIA`; `PAYMENT_OVERDUE` torna a cobranca e a mensalidade `ATRASADA` quando nao existe pagamento posterior.
+- Bloqueio ou rejeicao da chacara nao cancela automaticamente a assinatura. O cancelamento permanece apenas na acao administrativa explicita de desativar a mensalidade.
+- Compatibilidade legada: chacaras antigas sem registro ativo de mensalidade continuam elegiveis pela regra temporaria. Somente novas aprovacoes passam a exigir configuracao; nao ha migracao automatica dos registros legados.

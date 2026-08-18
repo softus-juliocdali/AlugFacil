@@ -60,6 +60,10 @@ final class ChacaraController extends Controller
                 'reservaAvaliavel' => $reservaAvaliavel,
                 'calendarios' => $this->montarCalendarios($inicioCalendario, 6, $indisponibilidades),
                 'googleMapsConfigurado' => $googleMaps->configurado(),
+                'coordenadasValidas' => $googleMaps->coordenadasValidas(
+                    $chacara['latitude'] ?? null,
+                    $chacara['longitude'] ?? null
+                ),
                 'googleMapsEmbedUrl' => $googleMaps->embedUrl($chacara['latitude'] ?? null, $chacara['longitude'] ?? null),
             ]);
         } catch (Throwable) {

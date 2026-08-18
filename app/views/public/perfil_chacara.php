@@ -21,9 +21,17 @@ foreach ($fotos as $indice => $foto) {
 if ($galeria === []) {
     $galeria[] = $resolverFoto((string) ($chacara['foto_principal'] ?? ''), ((int) $chacara['id'] - 1));
 }
-$localizacao = implode(' · ', array_filter([$chacara['cidade'], $chacara['regiao']]));
+$cidadeEstado = implode(' - ', array_filter([
+    trim((string) ($chacara['cidade'] ?? '')),
+    trim((string) ($chacara['estado'] ?? '')),
+]));
+$localizacao = implode(' · ', array_filter([$cidadeEstado, $chacara['regiao'] ?? null]));
+$enderecoPublico = implode(' · ', array_filter([
+    trim((string) ($chacara['endereco'] ?? '')),
+    $cidadeEstado,
+]));
 $fotosExtras = max(0, count($galeria) - 5);
-$temCoordenadas = $chacara['latitude'] !== null && $chacara['longitude'] !== null;
+$temCoordenadas = (bool) ($coordenadasValidas ?? false);
 $googleMapsConfigurado = (bool) ($googleMapsConfigurado ?? false);
 $googleMapsEmbedUrl = (string) ($googleMapsEmbedUrl ?? '');
 ?>
@@ -74,7 +82,7 @@ $googleMapsEmbedUrl = (string) ($googleMapsEmbedUrl ?? '');
                     <h2>Um lugar para viver bons momentos</h2>
                     <p class="profile-description"><?= nl2br(e($chacara['descricao'] ?: 'Consulte as condições e os detalhes desta chácara.')) ?></p>
                     <div class="location-facts">
-                        <div><span>Cidade</span><strong><?= e($chacara['cidade']) ?></strong></div>
+                        <div><span>Cidade</span><strong><?= e($cidadeEstado) ?></strong></div>
                         <div><span>Região</span><strong><?= e($chacara['regiao'] ?: 'Não informada') ?></strong></div>
                         <div><span>Endereço / referência</span><strong><?= e($chacara['endereco'] ?: 'Localização aproximada') ?></strong></div>
                     </div>
@@ -106,7 +114,7 @@ $googleMapsEmbedUrl = (string) ($googleMapsEmbedUrl ?? '');
                 <section class="profile-section" id="localizacao">
                     <span class="section-kicker">Como chegar</span>
                     <h2>Localização</h2>
-                    <p class="map-address"><?= e($chacara['endereco'] ?: $localizacao) ?></p>
+                    <p class="map-address"><?= e($enderecoPublico !== '' ? $enderecoPublico : $localizacao) ?></p>
                     <?php if (!$temCoordenadas): ?>
                         <div class="map-unavailable">Localização não informada.</div>
                     <?php elseif (!$googleMapsConfigurado || $googleMapsEmbedUrl === ''): ?>

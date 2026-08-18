@@ -97,12 +97,25 @@ function old(string $key, string $default = ''): string
 
 function set_old(array $data): void
 {
-    $_SESSION['_old'] = $data;
+    $_SESSION['_old_next'] = $data;
 }
 
 function clear_old(): void
 {
+    unset($_SESSION['_old'], $_SESSION['_old_next']);
+}
+
+function prepare_old_input_flash(): void
+{
     unset($_SESSION['_old']);
+
+    if (!isset($_SESSION['_old_next']) || !is_array($_SESSION['_old_next'])) {
+        unset($_SESSION['_old_next']);
+        return;
+    }
+
+    $_SESSION['_old'] = $_SESSION['_old_next'];
+    unset($_SESSION['_old_next']);
 }
 
 function csrf_token(): string

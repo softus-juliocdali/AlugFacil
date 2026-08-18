@@ -81,6 +81,169 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('[data-reservation-calendar]').forEach((calendar) => {
+        const rangeInput = calendar.querySelector('[data-reservation-range]');
+        const enhanced = calendar.querySelector('[data-reservation-enhanced]');
+        const nativeFields = calendar.querySelector('[data-reservation-native]');
+        const unavailableData = calendar.querySelector('[data-reservation-unavailable]');
+        const startInput = nativeFields?.querySelector('input[name="data_inicio"]');
+        const endInput = nativeFields?.querySelector('input[name="data_fim"]');
+        const status = calendar.querySelector('[data-reservation-calendar-status]');
+        const clearButton = calendar.querySelector('[data-reservation-clear]');
+        const locked = calendar.dataset.locked === 'true';
+
+        if (!rangeInput || !enhanced || !nativeFields || !startInput || !endInput || typeof window.flatpickr !== 'function') return;
+
+        let unavailableDates = [];
+        try {
+            const parsedUnavailableDates = JSON.parse(unavailableData?.textContent || '[]');
+            unavailableDates = Array.isArray(parsedUnavailableDates) ? parsedUnavailableDates : [];
+        } catch (_) {
+            unavailableDates = [];
+        }
+
+        const parseLocalDate = (value) => {
+            const parts = String(value || '').split('-').map(Number);
+            if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return null;
+            const date = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
+            if (
+                Number.isNaN(date.getTime())
+                || date.getFullYear() !== parts[0]
+                || date.getMonth() !== parts[1] - 1
+                || date.getDate() !== parts[2]
+            ) return null;
+            return date;
+        };
+        const dateKey = (date) => [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0'),
+        ].join('-');
+        const displayDate = (date) => new Intl.DateTimeFormat('pt-BR').format(date);
+        const unavailable = new Set(unavailableDates.filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)));
+        const minDate = parseLocalDate(calendar.dataset.minDate);
+        const maxDate = parseLocalDate(calendar.dataset.maxDate);
+        let checkoutBoundary = null;
+
+        const firstUnavailableAfter = (start) => {
+            const startKey = dateKey(start);
+            const next = [...unavailable].filter((key) => key > startKey).sort()[0];
+            return next ? parseLocalDate(next) : null;
+        };
+        const disabledDates = () => [...unavailable]
+            .filter((key) => key !== checkoutBoundary)
+            .map(parseLocalDate)
+            .filter(Boolean);
+        const rangeIsValid = (start, end) => {
+            if (!start || !end || end <= start || unavailable.has(dateKey(start))) return false;
+            const startKey = dateKey(start);
+            const endKey = dateKey(end);
+            return ![...unavailable].some((key) => key >= startKey && key < endKey);
+        };
+        const nightsBetween = (start, end) => Math.round((
+            Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+            - Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+        ) / 86400000);
+
+        const initialStart = parseLocalDate(startInput.value);
+        const initialEnd = parseLocalDate(endInput.value);
+        const initialBoundary = initialStart ? firstUnavailableAfter(initialStart) : null;
+        checkoutBoundary = initialBoundary ? dateKey(initialBoundary) : null;
+        const initialDates = locked && initialStart && initialEnd && initialEnd > initialStart
+            ? [initialStart, initialEnd]
+            : rangeIsValid(initialStart, initialEnd)
+            ? [initialStart, initialEnd]
+            : (initialStart && !unavailable.has(dateKey(initialStart)) ? [initialStart] : []);
+
+        const picker = window.flatpickr(rangeInput, {
+            mode: 'range',
+            dateFormat: 'd/m/Y',
+            defaultDate: initialDates,
+            minDate,
+            maxDate: locked ? maxDate : (checkoutBoundary ? parseLocalDate(checkoutBoundary) : maxDate),
+            disable: locked ? [] : disabledDates(),
+            disableMobile: true,
+            clickOpens: !locked,
+            allowInput: false,
+            locale: window.flatpickr.l10ns?.pt || 'default',
+            monthSelectorType: 'static',
+            ariaDateFormat: 'j F Y',
+            onReady: (_selectedDates, _dateString, instance) => {
+                instance.calendarContainer.classList.add('reservation-date-picker');
+            },
+            onDayCreate: (_selectedDates, _dateString, _instance, dayElement) => {
+                const key = dateKey(dayElement.dateObj);
+                if (!unavailable.has(key)) return;
+                if (key === checkoutBoundary) {
+                    dayElement.classList.add('is-checkout-boundary');
+                    dayElement.title = 'Disponível somente como data de saída';
+                } else {
+                    dayElement.classList.add('is-reservation-unavailable');
+                    dayElement.title = 'Data indisponível';
+                }
+            },
+            onChange: (selectedDates, _dateString, instance) => {
+                if (selectedDates.length === 0) {
+                    checkoutBoundary = null;
+                    startInput.value = '';
+                    endInput.value = '';
+                    instance.set('disable', disabledDates());
+                    instance.set('maxDate', maxDate);
+                    if (status) status.textContent = 'Selecione a entrada e depois a saída. A saída não conta como diária.';
+                    return;
+                }
+
+                if (selectedDates.length === 1) {
+                    const start = selectedDates[0];
+                    const boundary = firstUnavailableAfter(start);
+                    checkoutBoundary = boundary ? dateKey(boundary) : null;
+                    startInput.value = dateKey(start);
+                    endInput.value = '';
+                    instance.set('disable', disabledDates());
+                    instance.set('maxDate', boundary || maxDate);
+                    if (status) status.textContent = boundary
+                        ? `Escolha a saída até ${displayDate(boundary)}. Essa data pode ser usada somente como saída.`
+                        : 'Agora escolha a data de saída.';
+                    return;
+                }
+
+                const [start, end] = selectedDates;
+                if (!rangeIsValid(start, end)) {
+                    instance.clear();
+                    if (status) status.textContent = 'O período atravessa uma data indisponível. Selecione outro intervalo.';
+                    return;
+                }
+
+                startInput.value = dateKey(start);
+                endInput.value = dateKey(end);
+                startInput.dispatchEvent(new Event('change', { bubbles: true }));
+                endInput.dispatchEvent(new Event('change', { bubbles: true }));
+                const nights = nightsBetween(start, end);
+                if (status) status.textContent = `${nights} ${nights === 1 ? 'diária' : 'diárias'}: entrada em ${displayDate(start)} e saída em ${displayDate(end)}.`;
+            },
+        });
+
+        startInput.required = false;
+        endInput.required = false;
+        nativeFields.hidden = true;
+        enhanced.hidden = false;
+
+        if (locked && initialStart && initialEnd) {
+            if (status) status.textContent = `Período protegido pela cotação: entrada em ${displayDate(initialStart)} e saída em ${displayDate(initialEnd)}.`;
+        } else if (initialDates.length === 2 && status) {
+            const nights = nightsBetween(initialDates[0], initialDates[1]);
+            status.textContent = `${nights} ${nights === 1 ? 'diária' : 'diárias'}: entrada em ${displayDate(initialDates[0])} e saída em ${displayDate(initialDates[1])}.`;
+        }
+
+        clearButton?.addEventListener('click', () => picker.clear());
+        calendar.closest('form')?.addEventListener('submit', (event) => {
+            if (startInput.value && endInput.value) return;
+            event.preventDefault();
+            if (status) status.textContent = 'Selecione as datas de entrada e saída antes de continuar.';
+            picker.open();
+        });
+    });
+
     const galleryData = document.querySelector('[data-gallery-images]');
     const galleryModal = document.querySelector('[data-gallery-modal]');
     const galleryImage = document.querySelector('[data-gallery-modal-image]');

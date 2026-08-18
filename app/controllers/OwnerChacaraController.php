@@ -8,6 +8,9 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Helpers\GoogleMapsHelper;
 use App\Models\Chacara;
+use App\Validators\ChacaraHoursValidator;
+use App\Validators\ChacaraLocationValidator;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -15,7 +18,7 @@ final class OwnerChacaraController extends Controller
 {
     private const STATUSES = ['disponivel', 'indisponivel'];
     private const TIPOS_IMOVEL = ['chacara', 'sitio', 'area_lazer'];
-    private const MAX_UPLOAD_BYTES = 5242880;
+    private const MAX_UPLOAD_BYTES = 8388608;
     private const UPLOAD_RELATIVE_DIR = 'uploads/chacaras';
 
     public function index(): void
@@ -237,6 +240,7 @@ final class OwnerChacaraController extends Controller
             'tipo_imovel' => trim((string) ($_POST['tipo_imovel'] ?? 'chacara')),
             'valor_diaria' => str_replace(',', '.', trim((string) ($_POST['valor_diaria'] ?? ''))),
             'cidade' => trim((string) ($_POST['cidade'] ?? '')),
+            'estado' => trim((string) ($_POST['estado'] ?? '')),
             'regiao' => trim((string) ($_POST['regiao'] ?? '')),
             'endereco' => trim((string) ($_POST['endereco'] ?? '')),
             'latitude' => trim((string) ($_POST['latitude'] ?? '')),
@@ -246,6 +250,8 @@ final class OwnerChacaraController extends Controller
             'checkout_hora_inicial' => trim((string) ($_POST['checkout_hora_inicial'] ?? '')),
             'checkout_hora_final' => trim((string) ($_POST['checkout_hora_final'] ?? '')),
         ];
+
+        $dados = array_replace($dados, ChacaraHoursValidator::normalizar($dados));
 
         set_old($dados);
 
@@ -268,11 +274,30 @@ final class OwnerChacaraController extends Controller
             flash('error', 'Informe cidade e endereco.');
             $this->redirect($redirect);
         }
-        foreach(['checkin_hora_inicial','checkin_hora_final','checkout_hora_inicial','checkout_hora_final'] as $campo)if(!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/',$dados[$campo])){flash('error','Informe todos os horarios da hospedagem.');$this->redirect($redirect);}
-        if($dados['checkin_hora_inicial'] >= $dados['checkin_hora_final']||$dados['checkout_hora_inicial'] >= $dados['checkout_hora_final']){flash('error','O horario inicial deve ser anterior ao horario final.');$this->redirect($redirect);}
+        if (mb_strlen($dados['cidade']) > 100 || mb_strlen($dados['endereco']) > 255) {
+            flash('error', 'Cidade ou endereco excede o tamanho permitido.');
+            $this->redirect($redirect);
+        }
+        try {
+            ChacaraHoursValidator::validar($dados);
+        } catch (InvalidArgumentException $exception) {
+            flash('error', $exception->getMessage());
+            $this->redirect($redirect);
+        }
 
-        $latitude = $this->normalizarCoordenada($dados['latitude'], -90, 90, 'latitude', $redirect);
-        $longitude = $this->normalizarCoordenada($dados['longitude'], -180, 180, 'longitude', $redirect);
+        try {
+            $estado = ChacaraLocationValidator::normalizarEstado($dados['estado']);
+            $latitude = ChacaraLocationValidator::normalizarCoordenada($dados['latitude'], -90, 90, 'latitude');
+            $longitude = ChacaraLocationValidator::normalizarCoordenada($dados['longitude'], -180, 180, 'longitude');
+        } catch (InvalidArgumentException $exception) {
+            flash('error', $exception->getMessage());
+            $this->redirect($redirect);
+        }
+
+        if (($latitude === null) !== ($longitude === null)) {
+            flash('error', 'Informe latitude e longitude juntas ou deixe ambas em branco.');
+            $this->redirect($redirect);
+        }
 
         return [
             'nome' => $dados['nome'],
@@ -280,6 +305,7 @@ final class OwnerChacaraController extends Controller
             'tipo_imovel' => $dados['tipo_imovel'],
             'valor_diaria' => number_format((float) $dados['valor_diaria'], 2, '.', ''),
             'cidade' => $dados['cidade'],
+            'estado' => $estado,
             'regiao' => $dados['regiao'],
             'endereco' => $dados['endereco'],
             'latitude' => $latitude,
@@ -287,22 +313,6 @@ final class OwnerChacaraController extends Controller
             'checkin_hora_inicial'=>$dados['checkin_hora_inicial'],'checkin_hora_final'=>$dados['checkin_hora_final'],
             'checkout_hora_inicial'=>$dados['checkout_hora_inicial'],'checkout_hora_final'=>$dados['checkout_hora_final'],
         ];
-    }
-
-    private function normalizarCoordenada(string $valor, float $min, float $max, string $campo, string $redirect): ?string
-    {
-        if ($valor === '') {
-            return null;
-        }
-
-        $normalizado = str_replace(',', '.', $valor);
-
-        if (!is_numeric($normalizado) || (float) $normalizado < $min || (float) $normalizado > $max) {
-            flash('error', 'Informe uma ' . $campo . ' valida.');
-            $this->redirect($redirect);
-        }
-
-        return $normalizado;
     }
 
     private function processarUploads(Chacara $model, int $chacaraId): int
@@ -381,8 +391,8 @@ final class OwnerChacaraController extends Controller
             throw new RuntimeException('Formatos aceitos: JPG, JPEG, PNG e WEBP.');
         }
 
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mime = (string) $finfo->file($tmpName);
+        $imagem = @getimagesize($tmpName);
+        $mime = strtolower((string) ($imagem['mime'] ?? ''));
 
         if ($mime !== $permitidas[$extension]) {
             throw new RuntimeException('O tipo do arquivo nao corresponde a extensao enviada.');

@@ -30,7 +30,7 @@ final class Auth
 
     public static function logout(): void
     {
-        unset($_SESSION['user'], $_SESSION['_old']);
+        unset($_SESSION['user'], $_SESSION['_old'], $_SESSION['_old_next']);
         session_regenerate_id(true);
     }
 

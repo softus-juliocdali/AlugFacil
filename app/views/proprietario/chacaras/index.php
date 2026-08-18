@@ -38,6 +38,7 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
                         <th>Cidade</th>
                         <th>Di&aacute;ria</th>
                         <th>Status</th>
+                        <th>Mensalidade</th>
                         <th>Fotos</th>
                         <th>A&ccedil;&otilde;es</th>
                     </tr>
@@ -71,6 +72,7 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
                                     <span class="status-pill"><?= e($formatarStatusAprovacao($chacara['status_aprovacao'])) ?></span>
                                 <?php endif; ?>
                             </td>
+                            <td><span class="status-pill"><?= e($formatarStatus($chacara['mensalidade_status'])) ?></span><?php if(!empty($chacara['mensalidade_valor_centavos'])): ?><small>R$ <?= e(number_format(((int)$chacara['mensalidade_valor_centavos'])/100,2,',','.')) ?></small><?php endif; ?></td>
                             <td><?= e((string) (int) $chacara['total_fotos']) ?></td>
                             <td>
                                 <div class="table-actions">

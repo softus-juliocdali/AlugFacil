@@ -15,7 +15,7 @@ final class Reserva extends Model
 {
     public function buscarChacaraParaReserva(int $chacaraId): ?array
     {
-        $statement = $this->db->prepare(
+        $statement = $this->db->prepare(sprintf(
             <<<'SQL'
                 SELECT
                     c.id,
@@ -44,12 +44,10 @@ final class Reserva extends Model
                 INNER JOIN proprietarios p ON p.id = c.proprietario_id
                 INNER JOIN usuarios pu ON pu.id = p.usuario_id
                 WHERE c.id = :id
-                  AND c.status_aprovacao = 'aprovada'
-                  AND c.status_operacional = 'disponivel'
-                  AND pu.status = 'ativo'
+                  AND %s
                 LIMIT 1
                 SQL
-        );
+        , Chacara::clausulaElegibilidadePublica('c','p','pu')));
         $statement->execute(['id' => $chacaraId]);
         $chacara = $statement->fetch();
 
@@ -81,7 +79,7 @@ final class Reserva extends Model
 
     public function existeConflitoReserva(int $chacaraId, string $inicio, string $fim): bool
     {
-        $statement = $this->db->prepare(
+        $statement = $this->db->prepare(sprintf(
             <<<'SQL'
                 SELECT EXISTS (
                     SELECT 1
@@ -89,18 +87,11 @@ final class Reserva extends Model
                     WHERE r.chacara_id = :chacara_id
                       AND r.data_inicio < :fim
                       AND r.data_fim > :inicio
-                      AND r.status_reserva IN (
-                          'aguardando_pagamento',
-                          'pagamento_confirmado',
-                          'confirmada',
-                          'em_andamento',
-                          'cancelamento_solicitado',
-                          'disputa'
-                      )
+                      AND r.status_reserva IN (%s)
                       AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                 )
                 SQL
-        );
+        , ReservaStatusService::listaSqlBloqueiamDatas()));
         $statement->execute([
             'chacara_id' => $chacaraId,
             'inicio' => $inicio,

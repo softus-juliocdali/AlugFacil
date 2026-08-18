@@ -38,6 +38,7 @@ session_set_cookie_params([
 ]);
 session_name($config['session_name']);
 session_start();
+prepare_old_input_flash();
 
 $now = time();
 if (isset($_SESSION['_last_activity']) && $now - (int) $_SESSION['_last_activity'] > 7200) {
@@ -48,6 +49,7 @@ if (isset($_SESSION['_last_activity']) && $now - (int) $_SESSION['_last_activity
     }
     session_destroy();
     session_start();
+    prepare_old_input_flash();
     session_regenerate_id(true);
     flash('error', 'Sua sessao expirou. Faca login novamente.');
     header('Location: ' . url('/login'));

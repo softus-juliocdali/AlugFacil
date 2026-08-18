@@ -40,6 +40,8 @@ final class AsaasWebhookService
         if(!in_array($tipo,array_merge(self::CONFIRMACAO,self::INFORMATIVOS,self::REVERSAO),true))return ['status'=>'ignorado','erro'=>null];
         $payment=is_array($payload['payment']??null)?$payload['payment']:[];$pid=trim((string)($payment['id']??''));
         if($pid===''||$pid!==(string)$event['asaas_payment_id'])return $this->divergencia('Identificador da cobranca ausente ou divergente.');
+        $mensalidade=(new MensalidadeAnuncioService($this->db))->processarPagamento($event,$payment,$tipo);
+        if(($mensalidade['matched']??false)===true)return ['status'=>$mensalidade['status'],'erro'=>null];
         $s=$this->db->prepare('SELECT r.*,p.id AS pagamento_id,p.status_pagamento AS pagamento_registrado,p.valor AS pagamento_valor FROM reservas r LEFT JOIN pagamentos p ON p.reserva_id=r.id AND p.id_transacao_asaas=:payment WHERE r.id_cobranca_asaas=:payment LIMIT 1 FOR UPDATE OF r');$s->execute(['payment'=>$pid]);$reserva=$s->fetch();
         if(!$reserva)return $this->divergencia('Cobranca sem reserva interna correspondente.');
         $external=trim((string)($payment['externalReference']??''));

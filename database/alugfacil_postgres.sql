@@ -75,6 +75,7 @@ CREATE TABLE chacaras (
     tipo_imovel VARCHAR(20) NOT NULL DEFAULT 'chacara',
     valor_diaria NUMERIC(10,2) NOT NULL,
     cidade VARCHAR(100) NOT NULL,
+    estado CHAR(2),
     regiao VARCHAR(100),
     endereco VARCHAR(255) NOT NULL,
     latitude NUMERIC(10,7),
@@ -90,6 +91,12 @@ CREATE TABLE chacaras (
     CONSTRAINT chk_chacaras_tipo_imovel
         CHECK (tipo_imovel IN ('chacara', 'sitio', 'area_lazer')),
     CONSTRAINT chk_chacaras_valor_diaria CHECK (valor_diaria > 0),
+    CONSTRAINT chk_chacaras_estado
+        CHECK (estado IS NULL OR estado IN (
+            'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+            'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+            'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+        )),
     CONSTRAINT chk_chacaras_latitude
         CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
     CONSTRAINT chk_chacaras_longitude

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace App\Controllers;
-use App\Core\Auth;use App\Core\Controller;use App\Models\Reserva;use App\Services\PrecificacaoReservaService;use App\Helpers\AsaasHelper;use DateTimeImmutable;use DateTimeZone;use RuntimeException;use Throwable;
+use App\Core\Auth;use App\Core\Controller;use App\Models\Chacara;use App\Models\Reserva;use App\Services\PrecificacaoReservaService;use App\Helpers\AsaasHelper;use DateTimeImmutable;use DateTimeZone;use RuntimeException;use Throwable;
 final class ReservaController extends Controller
 {
  public function create(string$id):void{Auth::requireRole('cliente');$rid=$this->id($id);$m=new Reserva();$c=$m->buscarChacaraParaReserva($rid);if(!$c)$this->notFound();$i=old('data_inicio',$this->dataQuery('data_inicio'));$f=old('data_fim',$this->dataQuery('data_fim'));$n=Reserva::periodoValido($i,$f)?Reserva::calcularDiarias($i,$f):0;$d=PrecificacaoReservaService::decimalParaCentavos((string)$c['valor_diaria']);$this->render($c,$i,$f,$n,$d*$n,null,null);}
@@ -23,7 +23,9 @@ final class ReservaController extends Controller
    $pid=trim((string)($p['id']??''));if($pid==='')throw new RuntimeException('Asaas nao retornou o ID da cobranca.');$qr=$h->consultarQrCodePix($pid);$m->atualizarCobrancaAsaas($rid,$pid,(string)($p['invoiceUrl']??''),(string)($qr['encodedImage']??''),(string)($qr['payload']??''),(string)($p['status']??'PENDING'),(string)($p['dueDate']??''));
    flash('success','Cobranca PIX Sandbox criada. A reserva aguarda confirmacao por webhook.');
   }catch(Throwable$e){app_log('Falha segura ao gerar PIX Sandbox. reserva_id='.$rid);flash('error',$e instanceof RuntimeException?$e->getMessage():'Nao foi possivel gerar o PIX agora.');}$this->redirect('/reserva/confirmacao/'.$rid);}
- private function render(array$c,string$i,string$f,int$n,int$total,?array$q,?string$qid,bool$menos24=false):void{$this->view('public/reserva_criar',['title'=>'Reservar '.$c['nome'].' | Alug Facil','chacara'=>$c,'dataInicio'=>$i,'dataFim'=>$f,'quantidadeDiarias'=>$n,'valorTotal'=>$total,'minDataInicio'=>date('Y-m-d'),'meiosPagamento'=>[['forma_pagamento'=>'PIX','quantidade_parcelas'=>1]],'cotacao'=>$q,'cotacaoId'=>$qid,'menos24h'=>$menos24]);}
+ private function render(array$c,string$i,string$f,int$n,int$total,?array$q,?string$qid,bool$menos24=false):void
+ {$timezone=new DateTimeZone('America/Sao_Paulo');$minData=new DateTimeImmutable('today',$timezone);$maxData=$minData->modify('+12 months');$linhas=(new Chacara())->buscarDatasIndisponiveis((int)$c['id'],$minData->format('Y-m-d'),$maxData->format('Y-m-d'));$datas=array_values(array_unique(array_map(static fn(array$linha):string=>(string)$linha['data'],$linhas)));sort($datas);
+  $this->view('public/reserva_criar',['title'=>'Reservar '.$c['nome'].' | Alug Facil','chacara'=>$c,'dataInicio'=>$i,'dataFim'=>$f,'quantidadeDiarias'=>$n,'valorTotal'=>$total,'minDataInicio'=>$minData->format('Y-m-d'),'maxDataFim'=>$maxData->format('Y-m-d'),'datasIndisponiveis'=>$datas,'meiosPagamento'=>[['forma_pagamento'=>'PIX','quantidade_parcelas'=>1]],'cotacao'=>$q,'cotacaoId'=>$qid,'menos24h'=>$menos24]);}
  private function erro(string$m,int$id):never{flash('error',$m);$this->redirect('/reserva/criar/'.$id);}
  private function id(string$v):int{$id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($id===false)$this->notFound();return(int)$id;}
  private function dataQuery(string$k):string{$v=trim((string)($_GET[$k]??''));return preg_match('/^\d{4}-\d{2}-\d{2}$/',$v)?$v:'';}

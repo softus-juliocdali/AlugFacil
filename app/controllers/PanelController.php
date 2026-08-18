@@ -9,6 +9,7 @@ use App\Core\Controller;
 use App\Models\Chacara;
 use App\Models\Reserva;
 use App\Models\User;
+use App\Models\MensalidadeAnuncio;
 use Throwable;
 
 final class PanelController extends Controller
@@ -257,6 +258,7 @@ final class PanelController extends Controller
             'disponibilidades' => $this->corrigirCodificacaoLista(
                 $chacaraModel->listarDisponibilidadeResumoPorProprietario($proprietarioId, 8)
             ),
+            'notificacoesMensalidade' => (new MensalidadeAnuncio())->listarNotificacoes((int)Auth::user()['id'],5),
         ], 'panel');
     }
 

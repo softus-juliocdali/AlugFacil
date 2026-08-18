@@ -47,6 +47,7 @@ WITH esperadas(tabela, coluna) AS (
         ('proprietarios','status_decidido_em'),
         ('proprietarios','status_decidido_por'),
         ('chacaras','tipo_imovel'),
+        ('chacaras','estado'),
         ('chacaras','status_aprovacao'),
         ('chacaras','status_operacional'),
         ('chacaras','motivo_status'),

@@ -8,6 +8,11 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\User;
 use App\Models\Chacara;
+use App\Models\ConfiguracaoMensalidadeAnuncio;
+use App\Models\MensalidadeAnuncio;
+use App\Services\MensalidadeAnuncioService;
+use App\Services\PrecificacaoReservaService;
+use RuntimeException;
 use Throwable;
 
 final class AdminController extends Controller
@@ -312,6 +317,10 @@ final class AdminController extends Controller
             'panelRole' => 'admin',
             'chacara' => $chacara,
             'fotos' => $model->buscarFotosGerenciamento($chacaraId),
+            'mensalidade' => (new MensalidadeAnuncio())->buscarAdministrativa($chacaraId),
+            'historicoMensalidade' => (new MensalidadeAnuncio())->historicoAdministrativo($chacaraId),
+            'cobrancasMensalidade' => (new MensalidadeAnuncio())->cobrancasAdministrativas($chacaraId),
+            'valorMensalPadraoCentavos' => (new ConfiguracaoMensalidadeAnuncio())->valorPadraoCentavos(),
         ], 'panel');
     }
 
@@ -327,6 +336,26 @@ final class AdminController extends Controller
             $this->redirect('/admin/chacaras/' . $chacaraId);
         }
         try {
+            if ($status === 'aprovada') {
+                $valorInformado = trim((string) ($_POST['valor_mensal'] ?? ''));
+                $valorCentavos = $valorInformado === ''
+                    ? (new ConfiguracaoMensalidadeAnuncio())->valorPadraoCentavos()
+                    : PrecificacaoReservaService::decimalParaCentavos(
+                        str_replace(',', '.', $valorInformado)
+                    );
+                if ($valorCentavos < 100) {
+                    throw new RuntimeException('Informe um valor mensal de pelo menos R$ 1,00.');
+                }
+
+                // A chamada externa ocorre antes da curta transacao de status. Em caso de falha,
+                // a mensalidade permanece PENDENTE e a chacara nao e aprovada/publicada.
+                (new MensalidadeAnuncioService())->configurar(
+                    $chacaraId,
+                    true,
+                    $valorCentavos,
+                    (int) Auth::user()['id']
+                );
+            }
             $atualizado = (new Chacara())->atualizarStatusAdministrativo(
                 $chacaraId,
                 $status,
@@ -334,10 +363,14 @@ final class AdminController extends Controller
                 (int) Auth::user()['id']
             );
             flash($atualizado ? 'success' : 'error', $atualizado
-                ? 'Status do imovel atualizado.'
-                : 'Transicao invalida ou proprietario sem aprovacao para publicar.');
-        } catch (Throwable) {
-            flash('error', 'Nao foi possivel atualizar o status do imovel.');
+                ? ($status === 'aprovada'
+                    ? 'Imovel aprovado. A publicacao aguardara a confirmacao da mensalidade.'
+                    : 'Status do imovel atualizado.')
+                : 'Transicao de status invalida ou conta do proprietario bloqueada.');
+        } catch (Throwable $exception) {
+            flash('error', $exception instanceof RuntimeException
+                ? $exception->getMessage()
+                : 'Nao foi possivel atualizar o status do imovel.');
         }
         $this->redirect('/admin/chacaras/' . $chacaraId);
     }

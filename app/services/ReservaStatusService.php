@@ -14,6 +14,11 @@ final class ReservaStatusService
     public const BLOQUEIAM_DATAS = ['aguardando_pagamento', 'pagamento_confirmado', 'confirmada', 'em_andamento', 'cancelamento_solicitado', 'disputa'];
     public const FINAIS = ['finalizada', 'cancelada', 'expirada', 'estornada'];
 
+    public static function listaSqlBloqueiamDatas(): string
+    {
+        return "'" . implode("','", self::BLOQUEIAM_DATAS) . "'";
+    }
+
     private const TRANSICOES = [
         'solicitada' => ['aguardando_pagamento'],
         'aguardando_pagamento' => ['confirmada', 'expirada', 'cancelada'],
