@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/scripts/bootstrap.php';
+require dirname(__DIR__).'/database/MigrationExecutionGuard.php';
 use App\Models\Chacara;
 use App\Services\FakeAsaasClient;
 
@@ -41,5 +42,19 @@ $check('24 tela exibe mensagem durante preparacao',str_contains($view,'primeira 
 $check('25 pagar redireciona para URL vinculada sem criar cobranca',str_contains($controller,"header('Location: '.\$url")&&!str_contains($controller,'criarCobranca'));
 $check('26 consulta do proprietario fornece URL e vencimento',str_contains($owner,'cm.invoice_url')&&str_contains($owner,'cm.vencimento'));
 $check('27 sincronizacao nao promove mensalidade para em dia',!preg_match('/sincronizarPrimeiraCobranca[\s\S]*?alterarStatus\([^)]*EM_DIA/i',$monthly));
+
+$guardAllows=static function(string $environment,string $database,string $configuredDatabase,array $arguments):bool{
+    try{MigrationExecutionGuard::assertAllowed($environment,$database,$configuredDatabase,$arguments);return true;}
+    catch(RuntimeException){return false;}
+};
+$check('28 guard permite somente banco local conhecido em desenvolvimento',$guardAllows('development','alugfacil_dev','alugfacil_dev',[]));
+$check('29 guard recusa banco desconhecido em desenvolvimento',!$guardAllows('development','outro_banco','outro_banco',[]));
+$check('30 guard recusa producao sem confirmacao',!$guardAllows('production','alugfaciln_sistema','alugfaciln_sistema',[]));
+$check('31 guard permite producao confirmada fora do banco dev',$guardAllows('production','alugfaciln_sistema','alugfaciln_sistema',['--confirm-production']));
+$check('32 guard recusa alugfacil_dev em producao',!$guardAllows('production','alugfacil_dev','alugfacil_dev',['--confirm-production']));
+$check('33 guard recusa banco real diferente do DB_NAME',!$guardAllows('production','banco_real','banco_configurado',['--confirm-production']));
+$locationApply=$read('database/apply_location_migration.php');$monthlyApply=$read('database/apply_mensalidade_anuncio_migration.php');
+$check('34 executores usam o guard compartilhado',str_contains($locationApply,'MigrationExecutionGuard::authorize')&&str_contains($monthlyApply,'MigrationExecutionGuard::authorize'));
+$check('35 migration de localizacao segue incremental e sem drop',str_contains($read('database/location_migration.sql'),'ADD COLUMN IF NOT EXISTS')&&!preg_match('/\b(?:DROP|TRUNCATE)\b/i',$read('database/location_migration.sql')));
 
 echo "Total: ".($ok+$fail)." | Aprovados: $ok | Falhos: $fail".PHP_EOL;exit($fail?1:0);

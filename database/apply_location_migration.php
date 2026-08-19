@@ -8,10 +8,15 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__) . '/scripts/bootstrap.php';
+require __DIR__ . '/MigrationExecutionGuard.php';
 
 $db = App\Core\Database::getConnection();
-if ($db->query('SELECT current_database()')->fetchColumn() !== 'alugfacil_dev') {
-    throw new RuntimeException('Migration de localizacao permitida somente em alugfacil_dev.');
+
+try {
+    $target = MigrationExecutionGuard::authorize($db, $argv, 'location_migration.sql');
+} catch (Throwable $exception) {
+    fwrite(STDERR, 'Execucao recusada: ' . $exception->getMessage() . PHP_EOL);
+    exit(2);
 }
 
 $sql = file_get_contents(__DIR__ . '/location_migration.sql');
@@ -20,4 +25,4 @@ if ($sql === false) {
 }
 
 $db->exec($sql);
-echo "Migration de localizacao aplicada em alugfacil_dev.\n";
+echo 'Migration de localizacao aplicada em ' . $target['database'] . '.' . PHP_EOL;

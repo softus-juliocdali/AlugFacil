@@ -1,10 +1,30 @@
 <?php
+
 declare(strict_types=1);
-if(PHP_SAPI!=='cli'){http_response_code(404);exit(1);}
-require dirname(__DIR__).'/scripts/bootstrap.php';
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit(1);
+}
+
+require dirname(__DIR__) . '/scripts/bootstrap.php';
+require __DIR__ . '/MigrationExecutionGuard.php';
+
 use App\Core\Database;
-$db=Database::getConnection();
-if(config('app_env')==='development'&&$db->query('SELECT current_database()')->fetchColumn()!=='alugfacil_dev'){fwrite(STDERR,"Banco local nao permitido.\n");exit(2);}
-$sql=(string)file_get_contents(__DIR__.'/mensalidade_anuncio_migration.sql');
+
+$db = Database::getConnection();
+
+try {
+    $target = MigrationExecutionGuard::authorize($db, $argv, 'mensalidade_anuncio_migration.sql');
+} catch (Throwable $exception) {
+    fwrite(STDERR, 'Execucao recusada: ' . $exception->getMessage() . PHP_EOL);
+    exit(2);
+}
+
+$sql = file_get_contents(__DIR__ . '/mensalidade_anuncio_migration.sql');
+if ($sql === false) {
+    throw new RuntimeException('Migration de mensalidade do anuncio nao encontrada.');
+}
+
 $db->exec($sql);
-echo "Migration de mensalidade do anuncio aplicada.\n";
+echo 'Migration de mensalidade do anuncio aplicada em ' . $target['database'] . '.' . PHP_EOL;

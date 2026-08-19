@@ -10,3 +10,7 @@ public/error_log
 *.sql.gz
 .DS_Store
 Thumbs.db
+
+# Arquivos enviados em runtime; somente o marcador do diretorio e versionado.
+public/assets/uploads/chacaras/*
+!public/assets/uploads/chacaras/.gitkeep
