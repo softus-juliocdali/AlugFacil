@@ -1,0 +1,12 @@
+<?php
+declare(strict_types=1);
+namespace App\Services;
+final class FakeAsaasClient implements AsaasClientInterface,AsaasPaymentClientInterface,AsaasTransferClientInterface
+{
+ public int$criacoes=0,$consultasSubcontas=0,$cobrancasCriadas=0,$transferenciasCriadas=0;public array$ultimoPayloadCobranca=[],$ultimoPayloadTransferencia=[],$subcontasRemotas=[],$cobrancasRemotas=[],$transferenciasRemotas=[];
+ public function __construct(private array$resposta=['id'=>'acc_fake','walletId'=>'wal_fake','apiKey'=>'secret-never-persist']){}
+ public function criarSubconta(array$p):array{$this->criacoes++;return$this->resposta;}public function listarSubcontas(array$f):array{$this->consultasSubcontas++;return['data'=>$this->subcontasRemotas,'totalCount'=>count($this->subcontasRemotas),'hasMore'=>false];}public function consultarSubconta(string$id):array{return['id'=>$id,'walletId'=>'wal_fake','status'=>'APPROVED'];}public function verificarContaRaiz():array{return['id'=>'root_fake','personType'=>'JURIDICA','status'=>'ACTIVE'];}
+ public function listarClientes(array$f):array{return['data'=>[['id'=>'cus_fake']],'totalCount'=>1];}public function criarCliente(array$p):array{return['id'=>'cus_fake'];}public function listarCobrancas(array$f):array{return['data'=>array_values(array_filter($this->cobrancasRemotas,fn($x)=>!isset($f['externalReference'])||($x['externalReference']??'')===$f['externalReference']))];}public function criarCobranca(array$p):array{$this->cobrancasCriadas++;$this->ultimoPayloadCobranca=$p;return['id'=>'pay_fake','invoiceUrl'=>'https://sandbox.invalid/pay_fake','status'=>'PENDING'];}public function consultarCobranca(string$id):array{return['id'=>$id,'status'=>'PENDING'];}
+ public function consultarQrCodePix(string$id):array{return['encodedImage'=>'ZmFrZQ==','payload'=>'PIX-FAKE','expirationDate'=>'2099-01-01'];}public function listarWebhooks():array{return['data'=>[]];}public function criarWebhook(array$p):array{return['id'=>'wh_fake']+$p;}public function atualizarWebhook(string$id,array$p):array{return['id'=>$id]+$p;}
+ public function listarTransferencias(array$f):array{return['data'=>array_values(array_filter($this->transferenciasRemotas,fn($x)=>!isset($f['externalReference'])||($x['externalReference']??'')===$f['externalReference']))];}public function criarTransferencia(array$p):array{$this->transferenciasCriadas++;$this->ultimoPayloadTransferencia=$p;return['id'=>'tra_fake','status'=>'PENDING'];}public function consultarTransferencia(string$id):array{return['id'=>$id,'status'=>'PENDING'];}
+}

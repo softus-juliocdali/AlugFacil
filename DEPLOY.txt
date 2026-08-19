@@ -1,0 +1,39 @@
+ALUGFÁCIL — DEPLOY
+
+1. Fazer backup dos arquivos atuais e do banco de dados antes de iniciar.
+
+2. Enviar os arquivos do ZIP preservando exatamente a estrutura de diretórios.
+
+3. NÃO substituir, enviar ou alterar o arquivo .env de produção.
+
+4. Confirmar que a conexão configurada aponta para o banco PostgreSQL correto de
+produção e executar somente a migration abaixo, a partir da raiz da aplicação:
+
+Migration:
+database/approval_workflow_migration.sql
+
+Runner:
+database/apply_approval_migration.php
+
+Comando:
+php database/apply_approval_migration.php
+
+Não executar nenhuma outra migration ou arquivo SQL neste procedimento.
+
+5. Validar no admin:
+- abrir uma chácara pendente;
+- testar Sem mensalidade;
+- testar Com mensalidade com valor válido;
+- tentar aprovar sem selecionar uma modalidade e confirmar o bloqueio;
+- aprovar a chácara e conferir o status final.
+
+6. Validar no público:
+- chácara disponível;
+- chácara indisponível;
+- motivo/status de indisponibilidade;
+- mapa;
+- calendário e criação de reservas.
+
+7. Se houver erro, interromper o procedimento antes de executar qualquer ação
+adicional. Não repetir a migration nem tentar correções manuais no banco sem uma
+nova revisão técnica.

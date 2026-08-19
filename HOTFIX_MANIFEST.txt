@@ -1,0 +1,31 @@
+ALUG FACIL - HOTFIX-FTP-001
+Data: 2026-08-19
+Bug corrigido: BUG-MENSALIDADE-002
+
+ARQUIVOS INCLUIDOS
+- app/controllers/AdminController.php
+- app/views/admin/chacaras/show.php
+
+ARQUIVOS EXCLUIDOS
+- app/services/FakeAsaasClient.php
+- tests/
+- .env
+- .git/
+- database/
+- public/assets/uploads/
+- logs
+- backups
+- arquivos SQL
+
+REGRA FINAL
+- Chacara aprovada, disponivel e sem mensalidade ativa fica publica e reservavel.
+- Mensalidade ativa PENDENTE ou ATRASADA bloqueia publicacao e novas reservas.
+- Mensalidade ativa EM_DIA permite publicacao e novas reservas.
+- Aprovacao sem mensalidade nao cria cliente, assinatura ou cobranca no Asaas.
+
+BANCO DE DADOS
+- Este hotfix nao altera o banco e nao exige execucao de SQL.
+
+INSTRUCAO DE UPLOAD
+Enviar o conteúdo da pasta hotfix_ftp_mensalidade para /public_html/
+mantendo a hierarquia e confirmando sobrescrita.

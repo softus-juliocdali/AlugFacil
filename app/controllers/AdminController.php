@@ -336,22 +336,36 @@ final class AdminController extends Controller
             $this->redirect('/admin/chacaras/' . $chacaraId);
         }
         try {
+            $mensalidadeAtiva = null;
             if ($status === 'aprovada') {
-                $valorInformado = trim((string) ($_POST['valor_mensal'] ?? ''));
-                $valorCentavos = $valorInformado === ''
-                    ? (new ConfiguracaoMensalidadeAnuncio())->valorPadraoCentavos()
-                    : PrecificacaoReservaService::decimalParaCentavos(
-                        str_replace(',', '.', $valorInformado)
-                    );
-                if ($valorCentavos < 100) {
-                    throw new RuntimeException('Informe um valor mensal de pelo menos R$ 1,00.');
+                $tipoMensalidade = $_POST['mensalidade'] ?? null;
+                if (!is_string($tipoMensalidade)
+                    || !in_array($tipoMensalidade, ['sem', 'com'], true)) {
+                    throw new RuntimeException('Escolha se o imovel sera aprovado com ou sem mensalidade.');
                 }
 
-                // A chamada externa ocorre antes da curta transacao de status. Em caso de falha,
-                // a mensalidade permanece PENDENTE e a chacara nao e aprovada/publicada.
+                $mensalidadeAtiva = $tipoMensalidade === 'com';
+                $valorCentavos = null;
+                if ($mensalidadeAtiva) {
+                    $valorMensalRecebido = $_POST['valor_mensal'] ?? null;
+                    if (!is_string($valorMensalRecebido)
+                        || trim($valorMensalRecebido) === '') {
+                        throw new RuntimeException('Informe o valor mensal do anuncio.');
+                    }
+                    $valorInformado = trim($valorMensalRecebido);
+                    $valorCentavos = PrecificacaoReservaService::decimalParaCentavos(
+                        str_replace(',', '.', $valorInformado)
+                    );
+                    if ($valorCentavos < 100) {
+                        throw new RuntimeException('Informe um valor mensal de pelo menos R$ 1,00.');
+                    }
+                }
+
+                // A configuracao ocorre antes da curta transacao de status. Apenas o fluxo com
+                // mensalidade ativa sincroniza com o Asaas e pode manter a aprovacao pendente.
                 (new MensalidadeAnuncioService())->configurar(
                     $chacaraId,
-                    true,
+                    $mensalidadeAtiva,
                     $valorCentavos,
                     (int) Auth::user()['id']
                 );
@@ -364,7 +378,9 @@ final class AdminController extends Controller
             );
             flash($atualizado ? 'success' : 'error', $atualizado
                 ? ($status === 'aprovada'
-                    ? 'Imovel aprovado. A publicacao aguardara a confirmacao da mensalidade.'
+                    ? ($mensalidadeAtiva
+                        ? 'Imovel aprovado. A publicacao aguardara a confirmacao da mensalidade.'
+                        : 'Imovel aprovado sem mensalidade e publicado imediatamente.')
                     : 'Status do imovel atualizado.')
                 : 'Transicao de status invalida ou conta do proprietario bloqueada.');
         } catch (Throwable $exception) {

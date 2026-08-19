@@ -1,0 +1,118 @@
+ALUG FACIL - MANIFESTO DE DEPLOY FTP
+====================================
+
+RELEASE
+-------
+Data: 2026-08-18
+Base de producao: 311aa4a48c5f4c920bd85a115c8c840b2f710d3f
+HEAD da release: d869659c073db138666d7dba1eba963a004ad5a2
+Destino FTP: /public_html/
+
+ARQUIVOS INCLUIDOS (38)
+-----------------------
+app/config/routes.php
+app/controllers/AdminController.php
+app/controllers/ChacaraController.php
+app/controllers/MensalidadeAnuncioController.php
+app/controllers/OwnerChacaraController.php
+app/controllers/PanelController.php
+app/controllers/ReservaController.php
+app/core/Auth.php
+app/helpers/functions.php
+app/models/Chacara.php
+app/models/ConfiguracaoMensalidadeAnuncio.php
+app/models/MensalidadeAnuncio.php
+app/models/Reserva.php
+app/services/AsaasHttpClient.php
+app/services/AsaasPaymentClientInterface.php
+app/services/AsaasWebhookService.php
+app/services/MensalidadeAnuncioService.php
+app/services/ReservaStatusService.php
+app/validators/ChacaraHoursValidator.php
+app/validators/ChacaraLocationValidator.php
+app/views/admin/chacaras/index.php
+app/views/admin/chacaras/show.php
+app/views/admin/mensalidades/index.php
+app/views/layouts/sidebar_admin.php
+app/views/layouts/sidebar_proprietario.php
+app/views/proprietario/chacaras/form.php
+app/views/proprietario/chacaras/index.php
+app/views/proprietario/dashboard.php
+app/views/proprietario/mensalidades/index.php
+app/views/public/perfil_chacara.php
+app/views/public/reserva_criar.php
+database/deploy_producao_2026_08_18.sql
+public/assets/css/panel.css
+public/assets/css/style.css
+public/assets/js/main.js
+public/assets/js/maps.js
+public/assets/js/panel.js
+public/index.php
+
+ARQUIVOS EXCLUIDOS
+------------------
+Excluidos obrigatoriamente por politica:
+- .env e qualquer .env.* com credenciais
+- .git/ e metadados Git
+- .agents/
+- .codex/
+- tests/
+- storage/logs/
+- public/assets/uploads/chacaras/
+- node_modules/
+- vendor/
+- *.log e *.tmp
+- dumps de banco e arquivos de homologacao
+
+Alteracoes do diff nao enviadas ao servidor (20):
+- .env.example (configuracao deve ser validada manualmente, sem sobrescrever producao)
+- .gitignore
+- README.md
+- 9 arquivos em tests/
+- app/services/FakeAsaasClient.php (test double usado somente por testes/homologacao)
+- database/MigrationExecutionGuard.php
+- database/apply_location_migration.php
+- database/apply_mensalidade_anuncio_migration.php
+- database/location_migration.sql
+- database/mensalidade_anuncio_migration.sql
+- database/alugfacil_postgres.sql (dump completo proibido no deploy)
+- database/auditoria_schema_remoto_phpPgAdmin.sql
+
+Os sete arquivos de database acima foram substituidos, para esta publicacao
+manual, pelo SQL incremental consolidado listado na secao BANCO.
+
+BANCO
+-----
+Arquivo a executar no banco PostgreSQL de producao:
+database/deploy_producao_2026_08_18.sql
+
+O SQL deve ser executado inteiro, somente depois do backup e da confirmacao
+visual do nome do banco. Ele recusa explicitamente o banco alugfacil_dev.
+
+CONFIGURACAO MANUAL NECESSARIA
+------------------------------
+Confirmar que o .env de producao possui estas variaveis, sem alterar seus
+valores por meio deste pacote:
+
+GOOGLE_MAPS_API_KEY
+ASAAS_ENVIRONMENT=sandbox
+ASAAS_BASE_URL=https://api-sandbox.asaas.com/v3
+ASAAS_API_KEY
+ASAAS_WEBHOOK_TOKEN
+
+ORDEM RECOMENDADA
+-----------------
+1. Fazer backup completo dos arquivos e do banco de producao.
+2. Enviar o conteudo de deploy_ftp/ para /public_html/, preservando caminhos.
+3. Executar database/deploy_producao_2026_08_18.sql no PostgreSQL de producao.
+4. Validar manualmente o .env, sem enviar ou sobrescrever credenciais.
+5. Executar smoke tests de login, cadastro/edicao de chacara, mapa,
+   aprovacao/mensalidade, reserva e webhooks.
+
+OBSERVACOES DE SEGURANCA
+------------------------
+- O pacote nao inclui .env, credenciais, uploads, logs ou testes.
+- O SQL nao contem DROP TABLE, TRUNCATE, DELETE ou dados de homologacao.
+- Existe somente DROP CONSTRAINT IF EXISTS para recriar
+  chk_mensalidade_valor dentro da transacao.
+- O envio e a execucao em producao sao manuais e nao fazem parte desta tarefa.

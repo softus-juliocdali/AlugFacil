@@ -1,0 +1,4 @@
+<?php
+declare(strict_types=1);require dirname(__DIR__).'/scripts/bootstrap.php';$db=App\Core\Database::getConnection();
+$checks=['database'=>"SELECT current_database()='alugfacil_dev'",'tabelas'=>"SELECT count(*)=5 FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('proprietario_dados_financeiros','aceites_financeiros_proprietarios','asaas_subcontas','historico_asaas_subcontas','auditoria_dados_financeiros')",'sem_api_key'=>"SELECT NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('asaas_subcontas','proprietario_dados_financeiros') AND column_name ILIKE '%api%key%')",'wallet_unica'=>"SELECT EXISTS(SELECT 1 FROM pg_indexes WHERE indexdef ILIKE '%asaas_wallet_id%' AND indexdef ILIKE '%UNIQUE%')"];
+$fail=0;foreach($checks as$n=>$sql){$ok=(bool)$db->query($sql)->fetchColumn();echo($ok?'[OK] ':'[FALHA] ').$n.PHP_EOL;$fail+=!$ok;}exit($fail?1:0);

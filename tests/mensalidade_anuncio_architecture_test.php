@@ -22,7 +22,7 @@ $check('07 notificacao de atraso e regularizacao',str_contains($monthly,"\$novo=
 $check('08 webhook separa mensalidade antes de reserva',strpos($webhook,'processarPagamento')<strpos($webhook,'SELECT r.*'));
 $check('09 fluxo mensal nao escreve reservas ou pagamentos',!preg_match('/\b(?:UPDATE|INSERT INTO|DELETE FROM)\s+(?:reservas|pagamentos)\b/i',$monthly));
 $check('10 fluxo de reserva permanece com referencia propria',str_contains($read('app/helpers/AsaasHelper.php'),"'reserva_'"));
-$check('11 somente rota administrativa altera configuracao',str_contains($routes,"/admin/chacaras/{id}/mensalidade")&&!str_contains($routes,"/proprietario/chacaras/{id}/mensalidade"));
+$check('11 somente a aprovacao administrativa configura a mensalidade',str_contains($routes,"/admin/chacaras/{id}/status")&&!str_contains($routes,"/admin/chacaras/{id}/mensalidade")&&!str_contains($routes,"/proprietario/chacaras/{id}/mensalidade"));
 $check('12 controller exige admin',str_contains($read('app/controllers/MensalidadeAnuncioController.php'),"requireRole('admin')"));
 $check('13 assinatura idempotente por referencia externa',str_contains($monthly,'listarAssinaturas')&&str_contains($migration,'asaas_subscription_id VARCHAR(100) UNIQUE'));
 $check('14 webhook e cobranca idempotentes',str_contains($migration,'asaas_payment_id VARCHAR(100) NOT NULL UNIQUE')&&str_contains($migration,'asaas_event_id VARCHAR(120) UNIQUE'));

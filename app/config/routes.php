@@ -93,7 +93,6 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/chacaras', [AdminController::class, 'chacaras']);
     $router->get('/admin/chacaras/{id}', [AdminController::class, 'chacaraDetalhes']);
     $router->post('/admin/chacaras/{id}/status', [AdminController::class, 'atualizarStatusChacara']);
-    $router->post('/admin/chacaras/{id}/mensalidade', [MensalidadeAnuncioController::class, 'adminUpdate']);
     $router->get('/admin/mensalidades', [MensalidadeAnuncioController::class, 'admin']);
     $router->post('/admin/mensalidades/configuracao', [MensalidadeAnuncioController::class, 'adminConfigUpdate']);
     $router->get('/admin/usuarios', [AdminController::class, 'usuarios']);

@@ -286,6 +286,23 @@
 .admin-detail-list dt { margin-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .admin-detail-list dd { margin: 0; color: #263128; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 .admin-status-action { margin-top: 18px; }
+.approval-monthly-choice { min-width: 0; margin: 0; padding: 0; border: 0; }
+.approval-monthly-choice legend { margin-bottom: 10px; color: #344039; font-size: 12px; font-weight: 800; }
+.approval-monthly-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.approval-monthly-option { position: relative; min-width: 0; cursor: pointer; }
+.approval-monthly-radio { position: absolute; width: 1px !important; height: 1px !important; margin: 0 !important; padding: 0 !important; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.approval-monthly-card { display: flex; align-items: flex-start; gap: 11px; min-height: 86px; padding: 15px; color: #344039; background: #fbfdfa; border: 1px solid #dce4da; border-radius: 9px; transition: border-color .2s, background-color .2s, box-shadow .2s; }
+.approval-monthly-card > span:last-child { min-width: 0; }
+.approval-monthly-card strong, .approval-monthly-card small { display: block; }
+.approval-monthly-card strong { color: var(--green-950); font-size: 13px; line-height: 1.35; }
+.approval-monthly-card small { margin-top: 5px; color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1.4; }
+.approval-monthly-check { display: grid; place-items: center; flex: 0 0 21px; width: 21px; height: 21px; color: transparent; border: 1px solid #b8c7b7; border-radius: 50%; font-size: 12px; font-weight: 900; }
+.approval-monthly-option:hover .approval-monthly-card { border-color: #a8bea6; background: #f7fbf6; }
+.approval-monthly-radio:focus-visible + .approval-monthly-card { border-color: var(--green-700); box-shadow: var(--focus-ring); }
+.approval-monthly-radio:checked + .approval-monthly-card { background: var(--green-100); border-color: var(--green-700); box-shadow: 0 0 0 1px var(--green-700); }
+.approval-monthly-radio:checked + .approval-monthly-card .approval-monthly-check { color: #fff; background: var(--green-700); border-color: var(--green-700); }
+.approval-monthly-help { display: block; margin-top: 9px; color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1.45; }
+.approval-monthly-value[hidden] { display: none; }
 @media (max-width: 1100px) {
     .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .owner-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -320,6 +337,7 @@
     .metric-grid { grid-template-columns: 1fr; }
     .owner-metric-grid { grid-template-columns: 1fr; }
     .admin-metric-grid { grid-template-columns: 1fr; }
+    .approval-monthly-options { grid-template-columns: 1fr; }
     .panel-page-heading h1 { font-size: 23px; }
     .empty-preview { align-items: flex-start; }
     .empty-preview b { margin-left: 0; }

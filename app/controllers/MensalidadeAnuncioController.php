@@ -6,7 +6,6 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\ConfiguracaoMensalidadeAnuncio;
 use App\Models\MensalidadeAnuncio;
-use App\Services\MensalidadeAnuncioService;
 use App\Services\PrecificacaoReservaService;
 use RuntimeException;
 use Throwable;
@@ -47,13 +46,6 @@ final class MensalidadeAnuncioController extends Controller
         $itens=(new MensalidadeAnuncio())->listarPorProprietario((int)$p['id']);$item=null;foreach($itens as $i)if((int)$i['chacara_id']===(int)$chacara){$item=$i;break;}
         if(!$item)$this->notFound();$url=trim((string)($item['invoice_url']??''));if($url===''||!preg_match('#^https://([a-z0-9-]+\.)*asaas\.com(?:/|$)#i',$url)){flash('error','A cobranca ainda esta sendo preparada pelo Asaas. Tente novamente em instantes.');$this->redirect('/proprietario/mensalidades');}
         header('Location: '.$url,true,302);exit;
-    }
-    public function adminUpdate(string $id):void
-    {
-        Auth::requireRole('admin');verify_csrf();$chacara=filter_var($id,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($chacara===false)$this->notFound();$ativa=($_POST['mensalidade']??'sem')==='com';
-        try{$valor=$ativa?PrecificacaoReservaService::decimalParaCentavos(str_replace(',','.',trim((string)($_POST['valor_mensal']??'')))):null;(new MensalidadeAnuncioService())->configurar((int)$chacara,$ativa,$valor,(int)Auth::user()['id']);flash('success',$ativa?'Mensalidade configurada; a confirmacao do pagamento ocorrera por webhook.':'Mensalidade desativada.');}
-        catch(Throwable $e){flash('error',$e instanceof RuntimeException?$e->getMessage():'Nao foi possivel configurar a mensalidade.');}
-        $this->redirect('/admin/chacaras/'.(int)$chacara);
     }
     private function notFound():never{http_response_code(404);$this->view('public/404',['title'=>'Registro nao encontrado']);exit;}
 }

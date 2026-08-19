@@ -63,7 +63,8 @@ $check('13 chacara bloqueada impede publicacao',!Chacara::elegivelPublicamente(a
 
 $controller=(string)file_get_contents(dirname(__DIR__).'/app/controllers/AdminController.php');
 $check('14 aprovacao configura mensalidade antes da transacao curta de status',strpos($controller,'MensalidadeAnuncioService())->configurar')<strpos($controller,'atualizarStatusAdministrativo'));
-$check('15 aprovacao usa o padrao quando valor nao e informado',str_contains($controller,'valorPadraoCentavos'));
+$approvalView=(string)file_get_contents(dirname(__DIR__).'/app/views/admin/chacaras/show.php');
+$check('15 aprovacao sugere o padrao mas exige valor somente no fluxo com mensalidade',str_contains($approvalView,'$valorMensalPadraoCentavos')&&str_contains($controller,'!is_string($valorMensalRecebido)')&&str_contains($controller,'if ($mensalidadeAtiva)'));
 $routes=(string)file_get_contents(dirname(__DIR__).'/app/config/routes.php');
 $adminView=(string)file_get_contents(dirname(__DIR__).'/app/views/admin/mensalidades/index.php');
 $migration=(string)file_get_contents(dirname(__DIR__).'/database/mensalidade_anuncio_migration.sql');
