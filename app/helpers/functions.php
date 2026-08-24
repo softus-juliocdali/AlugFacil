@@ -132,13 +132,13 @@ function csrf_field(): string
     return '<input type="hidden" name="_token" value="' . e(csrf_token()) . '">';
 }
 
-function verify_csrf(): void
+function verify_csrf(string $redirectPath = '/login'): void
 {
     $token = $_POST['_token'] ?? '';
     if (!is_string($token) || !hash_equals(csrf_token(), $token)) {
         http_response_code(419);
         flash('error', 'Sua sessão expirou. Tente novamente.');
-        header('Location: ' . url('/login'));
+        header('Location: ' . url($redirectPath));
         exit;
     }
 }
@@ -151,6 +151,11 @@ function isLoggedIn(): bool
 function currentUser(): ?array
 {
     return \App\Core\Auth::user();
+}
+
+function currentAffiliate(): ?array
+{
+    return \App\Core\AffiliateAuth::user();
 }
 
 function requireLogin(): void

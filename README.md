@@ -433,3 +433,46 @@ Após o primeiro acesso, troque a senha do administrador.
 - Webhooks `PAYMENT_CONFIRMED` e `PAYMENT_RECEIVED` tornam a mensalidade `EM_DIA`; `PAYMENT_OVERDUE` torna a cobranca e a mensalidade `ATRASADA` quando nao existe pagamento posterior.
 - Bloqueio ou rejeicao da chacara nao cancela automaticamente a assinatura. O cancelamento permanece apenas na acao administrativa explicita de desativar a mensalidade.
 - Compatibilidade legada: chacaras antigas sem registro ativo de mensalidade continuam elegiveis pela regra temporaria. Somente novas aprovacoes passam a exigir configuracao; nao ha migracao automatica dos registros legados.
+
+## 19. Fundação do módulo de afiliados
+
+- Aplique `php database/apply_affiliate_migration.php` somente no banco local `alugfacil_dev` em desenvolvimento. Em produção, o executor exige `--confirm-production` e a conferência prévia do destino e do backup.
+- A administração de afiliados fica em `GET /admin/afiliados`; a comissão global fica em `GET /admin/afiliados/configuracao`.
+- O afiliado usa autenticação separada em `GET|POST /afiliado/login`, encerra a sessão com `POST /afiliado/logout` e acessa sua área protegida em `GET /afiliado`.
+- A área do afiliado exibe o código e o link de indicação; o rastreamento atual está descrito na seção seguinte. Comissões e pagamentos ainda não são gerados.
+
+## 20. Rastreamento da indicação do afiliado
+
+- Aplique `php database/apply_affiliate_attribution_migration.php` no ambiente local antes de testar o cadastro indicado.
+- O link do afiliado aponta para `/cadastro-proprietario?ref=AF0001`, que é o mesmo formulário público usado por todos os proprietários.
+- Uma referência válida cria somente um cookie pendente assinado por 30 dias. Configure `AFFILIATE_COOKIE_SECRET` com um segredo aleatório em cada ambiente.
+- A primeira referência válida prevalece sobre links e códigos posteriores. O vínculo definitivo é gravado em `proprietarios.afiliado_id` somente dentro da transação de criação do proprietário.
+- Afiliados bloqueados não recebem novos vínculos; o cadastro do proprietário continua sem atribuição. Esta etapa não altera mensalidades, comissões, pagamentos ou Asaas.
+
+## 21. Mensalidade obrigatória para proprietários indicados
+
+- A obrigatoriedade é derivada diretamente de `proprietarios.afiliado_id IS NOT NULL` e vale para todas as chácaras atuais e futuras do proprietário, mesmo se o afiliado for bloqueado depois.
+- Na aprovação administrativa, chácaras vinculadas exibem somente a modalidade com mensalidade; tentativas manipuladas de selecionar `sem` são rejeitadas também no controller e no serviço.
+- O valor continua sendo definido pelo administrador e o processamento reutiliza o fluxo existente de assinatura, primeira cobrança e conciliação com o Asaas.
+- Uma chácara vinculada só é elegível publicamente quando possui mensalidade ativa com status `EM_DIA`. Proprietários sem afiliado mantêm as modalidades com e sem mensalidade.
+- Nenhuma coluna, flag ou migration adicional foi criada para esta regra. Esta etapa não cria comissão, saldo, repasse ou pagamento de afiliado.
+
+## 22. Comissões recorrentes dos afiliados
+
+- Aplique `php database/apply_affiliate_commission_migration.php` antes de ativar o processamento financeiro. O executor usa o mesmo guard de ambiente das migrations anteriores e pode ser repetido com segurança.
+- Cada `cobrancas_mensalidades.asaas_payment_id` pago gera no máximo uma comissão. A base é o valor recebido em centavos, e o percentual global em basis points é copiado como snapshot.
+- O cálculo usa somente inteiros e arredondamento comercial half-up: `(base_centavos × percentual_bps + 5000) ÷ 10000`.
+- A comissão fica em aberto até `confirmado_em + 7 dias`; a disponibilidade é derivada pela data e não depende de cron.
+- Estornos antes do repasse removem a comissão do saldo. Se já houve alocação, o pagamento histórico é preservado e um ajuste negativo compensa créditos futuros.
+- Pagamentos administrativos são manuais, transacionais e alocados por FIFO. Pagamentos parciais são permitidos; valores acima do saldo disponível são rejeitados.
+- A área financeira administrativa fica em `GET /admin/afiliados/{id}/financeiro`. Não há PIX automático, saque ou portal financeiro completo do afiliado nesta etapa.
+
+## 23. Portal completo do afiliado
+
+- Todas as rotas do portal revalidam a sessão e o status do afiliado no banco. O identificador usado nas consultas vem exclusivamente da sessão autenticada.
+- O dashboard em `GET /afiliado` reúne indicados, chácaras, pagamentos mensais do mês e os saldos calculados pelo ledger do AFILIADO-004.
+- `GET /afiliado/indicados` oferece filtros e paginação; `GET /afiliado/indicados/{id}` retorna 404 quando o proprietário não pertence ao afiliado autenticado.
+- `GET /afiliado/comissoes` apresenta comissão, percentual snapshot, liberação, pagamentos recebidos e ajustes, sem revelar valor de mensalidade, base de cálculo, IDs Asaas ou observações administrativas.
+- `GET|POST /afiliado/perfil` permite atualizar nome, contato, chave PIX, banco e senha. Código, documento, status e percentual permanecem protegidos.
+- O portal é somente leitura financeira. Pagamentos, ajustes e liquidações continuam exclusivamente na administração.
+- Nenhuma migration ou coluna de saldo foi criada para o portal; indicadores são agregados a partir dos relacionamentos e do ledger existentes.

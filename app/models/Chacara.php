@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Model;
+use App\Services\AffiliateMonthlyFeePolicy;
 use App\Services\ReservaStatusService;
 use DateTimeImmutable;
 use PDO;
@@ -15,7 +16,7 @@ final class Chacara extends Model
     public static function clausulaElegibilidadePublica(string $alias='c',string $aliasProprietario='p',string $aliasUsuario='u'): string
     {
         foreach([$alias,$aliasProprietario,$aliasUsuario] as $sqlAlias)if(!preg_match('/^[a-z][a-z0-9_]*$/i',$sqlAlias))throw new \InvalidArgumentException('Alias SQL invalido.');
-        return "$alias.status_aprovacao = 'aprovada' AND $alias.status_operacional = 'disponivel' AND $aliasUsuario.status = 'ativo' AND NOT EXISTS (SELECT 1 FROM mensalidades_anuncios ma_publica WHERE ma_publica.chacara_id=$alias.id AND ma_publica.ativa=TRUE AND ma_publica.status<>'EM_DIA')";
+        return "$alias.status_aprovacao = 'aprovada' AND $alias.status_operacional = 'disponivel' AND $aliasUsuario.status = 'ativo' AND NOT EXISTS (SELECT 1 FROM mensalidades_anuncios ma_publica WHERE ma_publica.chacara_id=$alias.id AND ma_publica.ativa=TRUE AND ma_publica.status<>'EM_DIA') AND ($aliasProprietario.afiliado_id IS NULL OR EXISTS (SELECT 1 FROM mensalidades_anuncios ma_afiliado WHERE ma_afiliado.chacara_id=$alias.id AND ma_afiliado.ativa=TRUE AND ma_afiliado.status='EM_DIA'))";
     }
 
     public static function elegivelPublicamente(array $chacara,?array $mensalidade=null):bool
@@ -23,6 +24,7 @@ final class Chacara extends Model
         $base=($chacara['status_aprovacao']??null)==='aprovada'&&($chacara['status_operacional']??null)==='disponivel'&&($chacara['usuario_status']??null)==='ativo';
         if(!$base)return false;
         $ativa=($mensalidade['ativa']??false)===true||in_array($mensalidade['ativa']??null,[1,'1','t','true'],true);
+        if(AffiliateMonthlyFeePolicy::propertyRequiresMonthlyFee($chacara))return $ativa&&($mensalidade['status']??null)==='EM_DIA';
         return !$ativa||($mensalidade['status']??null)==='EM_DIA';
     }
 
@@ -885,8 +887,13 @@ final class Chacara extends Model
         $statement = $this->db->prepare(
             "SELECT c.id, c.nome, c.cidade, c.valor_diaria, c.status_aprovacao,
                     c.status_operacional, c.motivo_status, p.nome AS proprietario_nome,
-                    p.status AS proprietario_status, u.status AS usuario_status,
-                    COALESCE(m.status,'SEM_MENSALIDADE') AS mensalidade_status,m.valor_centavos AS mensalidade_valor_centavos
+                    p.status AS proprietario_status, p.afiliado_id, u.status AS usuario_status,
+                    CASE WHEN p.afiliado_id IS NOT NULL
+                                   AND (m.id IS NULL OR NOT COALESCE(m.ativa,FALSE) OR m.status = 'SEM_MENSALIDADE')
+                         THEN 'AGUARDANDO_CONFIGURACAO'
+                         ELSE COALESCE(m.status,'SEM_MENSALIDADE')
+                    END AS mensalidade_status,
+                    m.valor_centavos AS mensalidade_valor_centavos
              FROM chacaras c INNER JOIN proprietarios p ON p.id = c.proprietario_id
              INNER JOIN usuarios u ON u.id = p.usuario_id LEFT JOIN mensalidades_anuncios m ON m.chacara_id=c.id {$where}
              ORDER BY c.data_cadastro DESC, c.id DESC"
@@ -899,9 +906,10 @@ final class Chacara extends Model
     {
         $statement = $this->db->prepare(
             'SELECT c.*, p.nome AS proprietario_nome, p.status AS proprietario_status,
-                    u.status AS usuario_status FROM chacaras c
+                    p.afiliado_id, a.codigo AS afiliado_codigo, u.status AS usuario_status FROM chacaras c
              INNER JOIN proprietarios p ON p.id = c.proprietario_id
-             INNER JOIN usuarios u ON u.id = p.usuario_id WHERE c.id = :id LIMIT 1'
+             INNER JOIN usuarios u ON u.id = p.usuario_id
+             LEFT JOIN afiliados a ON a.id = p.afiliado_id WHERE c.id = :id LIMIT 1'
         );
         $statement->execute(['id' => $id]);
         $chacara = $statement->fetch(PDO::FETCH_ASSOC);

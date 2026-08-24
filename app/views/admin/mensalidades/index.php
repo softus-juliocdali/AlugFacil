@@ -1,7 +1,7 @@
 <?php
 $money=static fn(?int $centavos):string=>$centavos===null?'-':'R$ '.number_format($centavos/100,2,',','.');
 $date=static fn(?string $valor,bool $hora=false):string=>$valor?date($hora?'d/m/Y H:i':'d/m/Y',strtotime($valor)):'-';
-$labels=['EM_DIA'=>'Em dia','PENDENTE'=>'Pendente','ATRASADA'=>'Atrasada','CANCELADA'=>'Cancelada','SEM_MENSALIDADE'=>'Sem mensalidade'];
+$labels=['EM_DIA'=>'Em dia','PENDENTE'=>'Pendente','ATRASADA'=>'Atrasada','CANCELADA'=>'Cancelada','SEM_MENSALIDADE'=>'Sem mensalidade','AGUARDANDO_CONFIGURACAO'=>'Aguardando configuração obrigatória'];
 $label=static fn(?string $valor):string=>$labels[$valor??'SEM_MENSALIDADE']??ucfirst(strtolower(str_replace('_',' ',(string)$valor)));
 $subscription=static function(?string $id):string{$id=trim((string)$id);return $id===''?'-':(strlen($id)>20?substr($id,0,10).'...'.substr($id,-6):$id);};
 ?>
@@ -25,7 +25,7 @@ $subscription=static function(?string $id):string{$id=trim((string)$id);return $
 <section class="panel-card">
     <form class="billing-filter-form" method="get" action="<?= url('/admin/mensalidades') ?>">
         <label>Status <select name="status">
-            <?php foreach([''=>'Todas','EM_DIA'=>'Em dia','PENDENTE'=>'Pendentes','ATRASADA'=>'Atrasadas','CANCELADA'=>'Canceladas','SEM_MENSALIDADE'=>'Sem mensalidade'] as $valor=>$rotulo): ?>
+            <?php foreach([''=>'Todas','AGUARDANDO_CONFIGURACAO'=>'Aguardando configuração obrigatória','EM_DIA'=>'Em dia','PENDENTE'=>'Pendentes','ATRASADA'=>'Atrasadas','CANCELADA'=>'Canceladas','SEM_MENSALIDADE'=>'Sem mensalidade'] as $valor=>$rotulo): ?>
                 <option value="<?= e($valor) ?>" <?= strtoupper($status)===strtoupper($valor)?'selected':'' ?>><?= e($rotulo) ?></option>
             <?php endforeach; ?>
         </select></label>

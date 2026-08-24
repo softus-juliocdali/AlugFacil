@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\User;
+use App\Services\AffiliateAttributionService;
 use DateTimeImmutable;
 use Throwable;
 
@@ -60,7 +61,13 @@ final class AuthController extends Controller
 
     public function showOwnerRegistration(): void
     {
-        $this->view('auth/register-owner', ['title' => 'Cadastrar proprietário']);
+        $reference = isset($_GET['ref']) && is_string($_GET['ref']) ? $_GET['ref'] : null;
+        $service = new AffiliateAttributionService();
+        $attribution = $service->captureFromQuery($reference);
+        $this->view('auth/register-owner', [
+            'title' => 'Cadastrar proprietário',
+            'affiliateCode' => $service->codeForForm($attribution),
+        ]);
     }
 
     public function registerOwner(): void
@@ -72,11 +79,15 @@ final class AuthController extends Controller
     {
         verify_csrf();
         $data = $this->registrationData();
-        set_old([
+        $oldInput = [
             'nome' => $data['nome'],
             'telefone' => $data['telefone'],
             'email' => $data['email'],
-        ]);
+        ];
+        if ($role === 'proprietario') {
+            $oldInput['codigo_afiliado'] = $data['codigo_afiliado'];
+        }
+        set_old($oldInput);
         $error = $this->validateRegistration($data);
         $returnPath = $role === 'proprietario' ? '/cadastro-proprietario' : '/cadastro';
 
@@ -91,15 +102,30 @@ final class AuthController extends Controller
             $this->redirect($returnPath);
         }
 
+        $attributionService = $role === 'proprietario' ? new AffiliateAttributionService() : null;
+        $attribution = null;
+        if ($attributionService !== null) {
+            $resolution = $attributionService->resolveForRegistration($data['codigo_afiliado']);
+            if ($resolution['error'] !== null) {
+                flash('error', 'Revise o código de afiliado informado.');
+                flash('affiliate_code_error', $resolution['error']);
+                $this->redirect($returnPath);
+            }
+            $attribution = $resolution['attribution'];
+        }
+
         try {
             $role === 'proprietario'
-                ? $model->createOwner($data)
+                ? $model->createOwner($data, $attribution)
                 : $model->createClient($data);
         } catch (Throwable) {
             flash('error', 'Não foi possível concluir o cadastro. Tente novamente.');
             $this->redirect($returnPath);
         }
 
+        if ($attributionService !== null) {
+            $attributionService->clearPending();
+        }
         clear_old();
         flash('success', $role === 'proprietario'
             ? 'Cadastro recebido! Sua conta de proprietário foi criada.'
@@ -176,12 +202,16 @@ final class AuthController extends Controller
 
     private function registrationData(): array
     {
+        $affiliateCode = $_POST['codigo_afiliado'] ?? '';
+        $affiliateCode = is_string($affiliateCode) ? $affiliateCode : '';
+
         return [
             'nome' => trim((string) ($_POST['nome'] ?? '')),
             'telefone' => trim((string) ($_POST['telefone'] ?? '')),
             'email' => strtolower(trim((string) ($_POST['email'] ?? ''))),
             'senha' => (string) ($_POST['senha'] ?? ''),
             'senha_confirmacao' => (string) ($_POST['senha_confirmacao'] ?? ''),
+            'codigo_afiliado' => AffiliateAttributionService::normalizeCode($affiliateCode),
         ];
     }
 

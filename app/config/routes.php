@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Controllers\AdminController;
+use App\Controllers\AdminAffiliateController;
+use App\Controllers\AffiliateAuthController;
+use App\Controllers\AffiliateController;
 use App\Controllers\AsaasWebhookAdminController;
 use App\Controllers\AuthController;
 use App\Controllers\ChacaraController;
@@ -41,6 +44,16 @@ return static function (Router $router, array $config): void {
     $router->get('/redefinir-senha', [AuthController::class, 'resetPasswordForm']);
     $router->post('/redefinir-senha', [AuthController::class, 'resetPassword']);
     $router->get('/logout', [AuthController::class, 'logout']);
+
+    $router->get('/afiliado/login', [AffiliateAuthController::class, 'showLogin']);
+    $router->post('/afiliado/login', [AffiliateAuthController::class, 'login']);
+    $router->post('/afiliado/logout', [AffiliateAuthController::class, 'logout']);
+    $router->get('/afiliado', [AffiliateController::class, 'index']);
+    $router->get('/afiliado/indicados', [AffiliateController::class, 'referred']);
+    $router->get('/afiliado/indicados/{id}', [AffiliateController::class, 'referredDetail']);
+    $router->get('/afiliado/comissoes', [AffiliateController::class, 'commissions']);
+    $router->get('/afiliado/perfil', [AffiliateController::class, 'profile']);
+    $router->post('/afiliado/perfil', [AffiliateController::class, 'updateProfile']);
 
     $router->get('/cliente', [PanelController::class, 'cliente']);
     $router->get('/cliente/favoritos', [PanelController::class, 'favoritosCliente']);
@@ -82,6 +95,16 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/dashboard', [PanelController::class, 'admin']);
     $router->get('/admin/minha-conta', [AdminController::class, 'minhaConta']);
     $router->post('/admin/minha-conta', [AdminController::class, 'atualizarMinhaConta']);
+    $router->get('/admin/afiliados', [AdminAffiliateController::class, 'index']);
+    $router->get('/admin/afiliados/criar', [AdminAffiliateController::class, 'create']);
+    $router->post('/admin/afiliados/criar', [AdminAffiliateController::class, 'store']);
+    $router->get('/admin/afiliados/configuracao', [AdminAffiliateController::class, 'commission']);
+    $router->post('/admin/afiliados/configuracao', [AdminAffiliateController::class, 'updateCommission']);
+    $router->get('/admin/afiliados/{id}/financeiro', [AdminAffiliateController::class, 'finance']);
+    $router->post('/admin/afiliados/{id}/pagamentos', [AdminAffiliateController::class, 'registerPayment']);
+    $router->get('/admin/afiliados/{id}/editar', [AdminAffiliateController::class, 'edit']);
+    $router->post('/admin/afiliados/{id}/editar', [AdminAffiliateController::class, 'update']);
+    $router->post('/admin/afiliados/{id}/status', [AdminAffiliateController::class, 'status']);
     $router->get('/admin/administradores', [AdminController::class, 'administradores']);
     $router->get('/admin/administradores/criar', [AdminController::class, 'criarAdministrador']);
     $router->post('/admin/administradores/criar', [AdminController::class, 'salvarAdministrador']);

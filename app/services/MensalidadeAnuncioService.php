@@ -16,8 +16,9 @@ final class MensalidadeAnuncioService
     public function configurar(int $chacaraId,bool $ativa,?int $valorCentavos,int $adminId): array
     {
         if($ativa&&($valorCentavos===null||$valorCentavos<100))throw new RuntimeException('Informe um valor mensal de pelo menos R$ 1,00.');
-        $s=$this->db->prepare('SELECT c.id,c.nome,c.proprietario_id,p.nome,p.email,p.telefone,u.id usuario_id,u.nome usuario_nome,u.email usuario_email FROM chacaras c INNER JOIN proprietarios p ON p.id=c.proprietario_id INNER JOIN usuarios u ON u.id=p.usuario_id WHERE c.id=:id LIMIT 1');
+        $s=$this->db->prepare('SELECT c.id,c.nome,c.proprietario_id,p.nome,p.email,p.telefone,p.afiliado_id,u.id usuario_id,u.nome usuario_nome,u.email usuario_email FROM chacaras c INNER JOIN proprietarios p ON p.id=c.proprietario_id INNER JOIN usuarios u ON u.id=p.usuario_id WHERE c.id=:id LIMIT 1');
         $s->execute(['id'=>$chacaraId]);$chacara=$s->fetch(PDO::FETCH_ASSOC);if(!$chacara)throw new RuntimeException('Chacara nao encontrada.');
+        AffiliateMonthlyFeePolicy::assertConfigurationAllowed($chacara, $ativa);
         $atual=$this->buscarPorChacara($chacaraId);
         if(!$ativa){
             if(!empty($atual['asaas_subscription_id']))$this->client()->cancelarAssinatura((string)$atual['asaas_subscription_id']);
@@ -113,6 +114,7 @@ final class MensalidadeAnuncioService
         $due=trim((string)($payment['dueDate']??''));$next=$due!==''?date('Y-m-d',strtotime($due.($statusCobranca==='PAGA'?' +1 month':''))):null;
         $this->db->prepare('UPDATE mensalidades_anuncios SET proximo_vencimento=COALESCE(:next,proximo_vencimento),atualizada_em=CURRENT_TIMESTAMP WHERE id=:id')->execute(['next'=>$next,'id'=>$mensalidade['id']]);
         if($novo!==(string)$mensalidade['status'])$this->alterarStatus($mensalidade,$novo,'webhook',(string)$event['asaas_event_id'],$payment);
+        (new AffiliateCommissionService($this->db))->processMonthlyPayment($event,$payment,$tipo);
         return ['matched'=>true,'status'=>'processado'];
     }
 
@@ -155,7 +157,7 @@ final class MensalidadeAnuncioService
     }
     private function alterarStatus(array $m,string $novo,string $origem,string $ref,array $payment):void
     {
-        $this->db->prepare('UPDATE mensalidades_anuncios SET status=:status,ultimo_pagamento_em=CASE WHEN :status=\'EM_DIA\' THEN CURRENT_TIMESTAMP ELSE ultimo_pagamento_em END,atualizada_em=CURRENT_TIMESTAMP WHERE id=:id')->execute(['status'=>$novo,'id'=>$m['id']]);
+        $this->db->prepare('UPDATE mensalidades_anuncios SET status=CAST(:status AS VARCHAR),ultimo_pagamento_em=CASE WHEN CAST(:status AS VARCHAR)=\'EM_DIA\' THEN CURRENT_TIMESTAMP ELSE ultimo_pagamento_em END,atualizada_em=CURRENT_TIMESTAMP WHERE id=:id')->execute(['status'=>$novo,'id'=>$m['id']]);
         $this->historico((int)$m['id'],(string)$m['status'],$novo,(int)$m['valor_centavos'],$origem,$ref);
         $s=$this->db->prepare('SELECT u.id,c.nome FROM mensalidades_anuncios ma INNER JOIN proprietarios p ON p.id=ma.proprietario_id INNER JOIN usuarios u ON u.id=p.usuario_id INNER JOIN chacaras c ON c.id=ma.chacara_id WHERE ma.id=:id');$s->execute(['id'=>$m['id']]);$d=$s->fetch(PDO::FETCH_ASSOC);if(!$d)return;
         if($novo==='ATRASADA'){$titulo='Mensalidade do anuncio pendente';$msg='Seu anuncio '.$d['nome'].' esta temporariamente indisponivel para novos clientes porque a mensalidade esta pendente.';}

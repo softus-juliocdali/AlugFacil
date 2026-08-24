@@ -11,6 +11,7 @@ use App\Models\Chacara;
 use App\Models\ConfiguracaoMensalidadeAnuncio;
 use App\Models\MensalidadeAnuncio;
 use App\Services\MensalidadeAnuncioService;
+use App\Services\AffiliateMonthlyFeePolicy;
 use App\Services\PrecificacaoReservaService;
 use RuntimeException;
 use Throwable;
@@ -321,6 +322,7 @@ final class AdminController extends Controller
             'historicoMensalidade' => (new MensalidadeAnuncio())->historicoAdministrativo($chacaraId),
             'cobrancasMensalidade' => (new MensalidadeAnuncio())->cobrancasAdministrativas($chacaraId),
             'valorMensalPadraoCentavos' => (new ConfiguracaoMensalidadeAnuncio())->valorPadraoCentavos(),
+            'mensalidadeObrigatoriaAfiliado' => AffiliateMonthlyFeePolicy::propertyRequiresMonthlyFee($chacara),
         ], 'panel');
     }
 
@@ -338,11 +340,17 @@ final class AdminController extends Controller
         try {
             $mensalidadeAtiva = null;
             if ($status === 'aprovada') {
+                $chacara = (new Chacara())->buscarAdministrativo($chacaraId);
+                if ($chacara === null) {
+                    $this->notFound();
+                }
                 $tipoMensalidade = $_POST['mensalidade'] ?? null;
                 if (!is_string($tipoMensalidade)
                     || !in_array($tipoMensalidade, ['sem', 'com'], true)) {
                     throw new RuntimeException('Escolha se o imovel sera aprovado com ou sem mensalidade.');
                 }
+
+                AffiliateMonthlyFeePolicy::assertModeAllowed($chacara, $tipoMensalidade);
 
                 $mensalidadeAtiva = $tipoMensalidade === 'com';
                 $valorCentavos = null;

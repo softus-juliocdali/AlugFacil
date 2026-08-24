@@ -12,7 +12,7 @@ $check=function(string $name,bool $condition)use(&$ok,&$fail):void{echo($conditi
 $pdo=new PDO('sqlite::memory:');$pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC);
 $pdo->exec(<<<'SQL'
 CREATE TABLE usuarios(id INTEGER PRIMARY KEY,nome TEXT,email TEXT,status TEXT);
-CREATE TABLE proprietarios(id INTEGER PRIMARY KEY,usuario_id INTEGER,nome TEXT,email TEXT,telefone TEXT,status TEXT);
+CREATE TABLE proprietarios(id INTEGER PRIMARY KEY,usuario_id INTEGER,nome TEXT,email TEXT,telefone TEXT,status TEXT,afiliado_id INTEGER);
 CREATE TABLE chacaras(id INTEGER PRIMARY KEY,proprietario_id INTEGER,nome TEXT,status_aprovacao TEXT,status_operacional TEXT);
 CREATE TABLE mensalidades_anuncios(id INTEGER PRIMARY KEY AUTOINCREMENT,chacara_id INTEGER UNIQUE,proprietario_id INTEGER,ativa BOOLEAN,valor_centavos INTEGER,status TEXT,asaas_customer_id TEXT,asaas_subscription_id TEXT UNIQUE,proximo_vencimento TEXT,ultimo_pagamento_em TEXT,configurada_por INTEGER,ultima_falha_sincronizacao TEXT,ultima_tentativa_sincronizacao_em TEXT,criada_em TEXT DEFAULT CURRENT_TIMESTAMP,atualizada_em TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE cobrancas_mensalidades(id INTEGER PRIMARY KEY AUTOINCREMENT,mensalidade_id INTEGER,asaas_payment_id TEXT UNIQUE,asaas_event_id TEXT UNIQUE,valor_centavos INTEGER,status TEXT,vencimento TEXT,invoice_url TEXT,pago_em TEXT,criada_em TEXT DEFAULT CURRENT_TIMESTAMP,atualizada_em TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -21,7 +21,7 @@ CREATE TABLE notificacoes(id INTEGER PRIMARY KEY AUTOINCREMENT,usuario_id INTEGE
 CREATE TABLE configuracoes_mensalidades_anuncios(id INTEGER PRIMARY KEY,valor_padrao_centavos INTEGER,atualizado_por INTEGER,criada_em TEXT DEFAULT CURRENT_TIMESTAMP,atualizada_em TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE historico_configuracoes_mensalidades_anuncios(id INTEGER PRIMARY KEY AUTOINCREMENT,valor_anterior_centavos INTEGER,valor_novo_centavos INTEGER,administrador_id INTEGER,motivo TEXT,criado_em TEXT DEFAULT CURRENT_TIMESTAMP);
 INSERT INTO usuarios VALUES(1,'Proprietario','owner@test','ativo'),(9,'Admin','admin@test','ativo');
-INSERT INTO proprietarios VALUES(2,1,'Proprietario','owner@test','11999999999','pendente');
+INSERT INTO proprietarios VALUES(2,1,'Proprietario','owner@test','11999999999','pendente',NULL);
 INSERT INTO chacaras VALUES(3,2,'Chacara A','pendente','indisponivel'),(4,2,'Chacara B','aprovada','disponivel');
 INSERT INTO configuracoes_mensalidades_anuncios(id,valor_padrao_centavos) VALUES(1,4990);
 SQL);

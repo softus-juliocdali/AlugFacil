@@ -14,7 +14,9 @@ final class MensalidadeAnuncio extends Model
         if(in_array($status,['EM_DIA','PENDENTE','ATRASADA','CANCELADA'],true)){
             $where[]='m.status = :status';$params['status']=$status;
         }elseif($status==='SEM_MENSALIDADE'){
-            $where[]="(m.id IS NULL OR m.status = 'SEM_MENSALIDADE')";
+            $where[]="p.afiliado_id IS NULL AND (m.id IS NULL OR m.status = 'SEM_MENSALIDADE')";
+        }elseif($status==='AGUARDANDO_CONFIGURACAO'){
+            $where[]="p.afiliado_id IS NOT NULL AND (m.id IS NULL OR NOT COALESCE(m.ativa,FALSE) OR m.status = 'SEM_MENSALIDADE')";
         }
         $busca=trim($busca);
         if($busca!==''){
@@ -24,7 +26,13 @@ final class MensalidadeAnuncio extends Model
         $sql=<<<'SQL'
             SELECT c.id AS chacara_id,c.nome AS chacara_nome,c.status_aprovacao,c.status_operacional,
                    p.id AS proprietario_id,p.nome AS proprietario_nome,
-                   m.id AS mensalidade_id,m.valor_centavos,m.status,m.ativa,m.asaas_subscription_id,
+                   m.id AS mensalidade_id,m.valor_centavos,
+                   CASE WHEN p.afiliado_id IS NOT NULL
+                                  AND (m.id IS NULL OR NOT COALESCE(m.ativa,FALSE) OR m.status = 'SEM_MENSALIDADE')
+                        THEN 'AGUARDANDO_CONFIGURACAO'
+                        ELSE m.status
+                   END AS status,
+                   m.ativa,m.asaas_subscription_id,p.afiliado_id,
                    m.proximo_vencimento,m.ultimo_pagamento_em,m.ultima_falha_sincronizacao,
                    CASE WHEN m.ativa THEN 1 ELSE 0 END AS ativa_flag,
                    (SELECT cm.vencimento FROM cobrancas_mensalidades cm WHERE cm.mensalidade_id=m.id ORDER BY cm.vencimento DESC NULLS LAST,cm.id DESC LIMIT 1) AS vencimento_atual,

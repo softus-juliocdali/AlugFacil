@@ -1,0 +1,114 @@
+ALUG FACIL - MANIFESTO DE DEPLOY DO MODULO DE AFILIADOS
+
+Preparado em: 2026-08-20T15:02:17-03:00
+Branch: master
+HEAD: b8cd0023fe323963b22c965529e5e825dfd85e49
+
+PACOTE
+Nome: alugfacil_afiliados_producao.zip
+Tamanho: 90839 bytes
+Arquivos: 41
+SHA-256: 84AEF6A151AD921ECCDBE754819A99731CA4AAC0076C0F469C37C8EB999F0667
+
+ARQUIVOS INCLUIDOS NO ZIP
+01. app/config/config.php
+02. app/config/routes.php
+03. app/controllers/AdminAffiliateController.php
+04. app/controllers/AdminController.php
+05. app/controllers/AffiliateAuthController.php
+06. app/controllers/AffiliateController.php
+07. app/controllers/AuthController.php
+08. app/core/AffiliateAuth.php
+09. app/helpers/functions.php
+10. app/models/Affiliate.php
+11. app/models/AffiliateCommissionConfig.php
+12. app/models/Chacara.php
+13. app/models/MensalidadeAnuncio.php
+14. app/models/User.php
+15. app/services/AffiliateAttributionService.php
+16. app/services/AffiliateCommissionService.php
+17. app/services/AffiliateMonthlyFeePolicy.php
+18. app/services/AffiliatePortalService.php
+19. app/services/MensalidadeAnuncioService.php
+20. app/validators/AffiliateValidator.php
+21. app/views/admin/afiliados/configuracao.php
+22. app/views/admin/afiliados/financeiro.php
+23. app/views/admin/afiliados/form.php
+24. app/views/admin/afiliados/index.php
+25. app/views/admin/chacaras/show.php
+26. app/views/admin/mensalidades/index.php
+27. app/views/afiliado/comissoes.php
+28. app/views/afiliado/dashboard.php
+29. app/views/afiliado/indicado_detalhe.php
+30. app/views/afiliado/indicados.php
+31. app/views/afiliado/login.php
+32. app/views/afiliado/perfil.php
+33. app/views/auth/register-owner.php
+34. app/views/layouts/navbar_panel.php
+35. app/views/layouts/sidebar_admin.php
+36. app/views/layouts/sidebar_afiliado.php
+37. public/index.php
+38. public/webhook_asaas.php
+39. public/assets/css/panel.css
+40. public/assets/css/style.css
+41. scripts/process-asaas-webhooks.php
+
+ARTEFATOS SQL AO LADO DO ZIP
+1. affiliate_production_migration.sql - obrigatorio; delta consolidado do modulo.
+2. database/asaas_webhook_migration.sql - estrutura declarada como existente; nao executar integralmente sem comparacao do schema.
+3. database/mensalidade_anuncio_migration.sql - estrutura declarada como existente; nao executar integralmente sem comparacao do schema.
+4. database/affiliate_migration.sql - fonte individual; nao executar se o consolidado for usado.
+5. database/affiliate_attribution_migration.sql - fonte individual; nao executar se o consolidado for usado.
+6. database/affiliate_commission_migration.sql - fonte individual; nao executar se o consolidado for usado.
+
+ARQUIVOS DELIBERADAMENTE EXCLUIDOS
+- tests/
+- database/ e qualquer SQL dentro do ZIP
+- .git/
+- .env e .env.example
+- README.md e documentacao
+- storage/logs/ e arquivos .log
+- backups, dumps, fixtures, screenshots e temporarios
+- scripts de teste
+- scripts/configure-asaas-webhook.php, por ser restrito ao Sandbox
+- aplicadores e verificadores locais de migration
+- caches e arquivos de IDE
+
+VARIAVEIS A CONFERIR, SEM VALORES
+- APP_ENV
+- APP_URL
+- APP_TIMEZONE
+- AFFILIATE_COOKIE_SECRET
+- DB_DRIVER
+- DB_HOST
+- DB_PORT
+- DB_NAME
+- DB_USER
+- DB_PASS
+- DB_CHARSET
+- ASAAS_ENVIRONMENT
+- ASAAS_BASE_URL
+- ASAAS_API_KEY
+- ASAAS_WEBHOOK_URL
+- ASAAS_WEBHOOK_TOKEN
+- ASAAS_WEBHOOK_MAX_BODY_BYTES
+- ASAAS_WEBHOOK_PROCESS_LIMIT
+
+OBSERVACOES OPERACIONAIS
+- AFFILIATE_COOKIE_SECRET e nova para o modulo e deve ter no minimo 32 caracteres aleatorios, ser estavel e nao versionada.
+- As variaveis Asaas ja pertenciam a integracao existente; continuam obrigatorias ou relevantes ao webhook e ao worker.
+- Endpoint esperado com document root em public: https://<dominio>/webhook_asaas.php
+- O worker deve ser executado com protecao externa contra sobreposicao.
+- Frequencia recomendada: uma vez por minuto com flock ou scheduler singleton.
+- O ZIP nao possui uma pasta adicional na raiz.
+- Nenhum deploy, SQL de producao, configuracao externa, commit ou push foi realizado.
+
+VALIDACOES DA PREPARACAO
+- Suite: 27 arquivos, 501 verificacoes, 0 falhas.
+- PHP dentro do ZIP: 39 arquivos, 0 falhas de lint.
+- Conteudo do ZIP: 41 arquivos.
+- Entradas proibidas no ZIP: 0.
+- Suspeitas de segredo real: 0.
+- SQL destrutivo no consolidado: 0.
+- Worker local em dry-run sem eventos: exit code 0.
+- git diff --check: aprovado.

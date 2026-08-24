@@ -36,7 +36,8 @@ final class User extends Model
     public function findOwnerByUserId(int $userId): ?array
     {
         $statement = $this->db->prepare(
-            'SELECT id, usuario_id, nome, telefone, email, cpf, status
+            'SELECT id, usuario_id, nome, telefone, email, cpf, status,
+                    afiliado_id, afiliado_origem, afiliado_atribuido_em
              FROM proprietarios
              WHERE usuario_id = :usuario_id
              LIMIT 1'
@@ -562,10 +563,27 @@ final class User extends Model
         return (int) $statement->fetchColumn();
     }
 
-    public function createOwner(array $data): int
+    public function createOwner(array $data, ?array $affiliateAttribution = null): int
     {
         $this->db->beginTransaction();
         try {
+            $resolvedAttribution = null;
+            $affiliateId = (int) ($affiliateAttribution['afiliado_id'] ?? 0);
+            $origin = (string) ($affiliateAttribution['origem'] ?? '');
+            if ($affiliateId > 0 && in_array($origin, ['link', 'codigo'], true)) {
+                $activeAffiliate = $this->db->prepare(
+                    "SELECT id FROM afiliados WHERE id = :id AND status = 'ativo' FOR SHARE"
+                );
+                $activeAffiliate->execute(['id' => $affiliateId]);
+                if ($activeAffiliate->fetchColumn() !== false) {
+                    $resolvedAttribution = [
+                        'afiliado_id' => $affiliateId,
+                        'origem' => $origin,
+                        'atribuido_em' => (string) ($affiliateAttribution['atribuido_em'] ?? date(DATE_ATOM)),
+                    ];
+                }
+            }
+
             $statement = $this->db->prepare(
                 'INSERT INTO usuarios (nome, telefone, email, senha_hash, tipo_usuario, status)
                  VALUES (:nome, :telefone, :email, :senha_hash, :tipo_usuario, :status)
@@ -582,8 +600,10 @@ final class User extends Model
             $userId = (int) $statement->fetchColumn();
 
             $owner = $this->db->prepare(
-                'INSERT INTO proprietarios (usuario_id, nome, telefone, email, status)
-                 VALUES (:usuario_id, :nome, :telefone, :email, :status)'
+                'INSERT INTO proprietarios
+                    (usuario_id, nome, telefone, email, status, afiliado_id, afiliado_origem, afiliado_atribuido_em)
+                 VALUES
+                    (:usuario_id, :nome, :telefone, :email, :status, :afiliado_id, :afiliado_origem, :afiliado_atribuido_em)'
             );
             $owner->execute([
                 'usuario_id' => $userId,
@@ -591,6 +611,9 @@ final class User extends Model
                 'telefone' => $data['telefone'] ?: null,
                 'email' => $data['email'],
                 'status' => 'ativo',
+                'afiliado_id' => $resolvedAttribution['afiliado_id'] ?? null,
+                'afiliado_origem' => $resolvedAttribution['origem'] ?? null,
+                'afiliado_atribuido_em' => $resolvedAttribution['atribuido_em'] ?? null,
             ]);
             $this->db->commit();
             return $userId;

@@ -605,6 +605,9 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
     transition: border-color .2s, box-shadow .2s;
 }
 .auth-card input:focus { border-color: var(--green-700); box-shadow: 0 0 0 3px rgba(47,124,61,.12); }
+.auth-card label > small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.auth-card label > .field-error { color: #a42828; font-weight: 700; }
+.auth-card input[name="codigo_afiliado"] { text-transform: uppercase; }
 .auth-card .btn { width: 100%; margin-top: 4px; }
 .auth-fields-row { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .auth-form-links { margin-top: -5px; text-align: right; }

@@ -22,6 +22,9 @@ spl_autoload_register(function (string $class): void {
     }
 });
 
+// Falhas de configuracao devem ser registradas, nunca exibidas ao visitante.
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
 $config = require APP_ROOT . '/app/config/config.php';
 date_default_timezone_set($config['timezone']);
 ini_set('display_errors', $config['app_env'] === 'development' ? '1' : '0');
@@ -42,6 +45,7 @@ prepare_old_input_flash();
 
 $now = time();
 if (isset($_SESSION['_last_activity']) && $now - (int) $_SESSION['_last_activity'] > 7200) {
+    $expiredAffiliateOnly = isset($_SESSION['affiliate']) && !isset($_SESSION['user']);
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
@@ -52,7 +56,7 @@ if (isset($_SESSION['_last_activity']) && $now - (int) $_SESSION['_last_activity
     prepare_old_input_flash();
     session_regenerate_id(true);
     flash('error', 'Sua sessao expirou. Faca login novamente.');
-    header('Location: ' . url('/login'));
+    header('Location: ' . url($expiredAffiliateOnly ? '/afiliado/login' : '/login'));
     exit;
 }
 $_SESSION['_last_activity'] = $now;

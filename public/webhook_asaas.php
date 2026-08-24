@@ -3,6 +3,7 @@ declare(strict_types=1);
 define('APP_ROOT',dirname(__DIR__));
 require APP_ROOT.'/app/helpers/functions.php';
 spl_autoload_register(static function(string $class):void{$prefix='App\\';if(!str_starts_with($class,$prefix))return;$parts=explode('\\',substr($class,strlen($prefix)));$parts[0]=strtolower($parts[0]);$file=APP_ROOT.'/app/'.implode('/',$parts).'.php';if(is_file($file))require$file;});
+ini_set('display_errors','0');error_reporting(E_ALL);
 $app=require APP_ROOT.'/app/config/config.php';date_default_timezone_set($app['timezone']);$apis=require APP_ROOT.'/app/config/apis.php';
 header('Content-Type: application/json; charset=UTF-8');header('X-Content-Type-Options: nosniff');header('Cache-Control: no-store');
 function respond(int $status,string $message):never{http_response_code($status);echo json_encode(['ok'=>$status===200,'message'=>$message],JSON_UNESCAPED_UNICODE);exit;}
