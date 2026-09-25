@@ -4,7 +4,7 @@
     "slug": "alugfacil-mobile",
     "owner": "softus-digital",
     "scheme": "alugfacil",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "icon": "./assets/icon-android.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -32,7 +32,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.alugfacil.cliente",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Selecione fotos para o anúncio do seu imóvel.",
         "NSCameraUsageDescription": "Fotografe seu imóvel para incluir no anúncio."
@@ -40,7 +40,7 @@
     },
     "android": {
       "package": "com.alugfacil.cliente",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

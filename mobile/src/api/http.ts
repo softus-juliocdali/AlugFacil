@@ -20,7 +20,7 @@ export function apiBase(value: string | undefined): string {
 export type HttpTransport = (input: string, init?: RequestInit) => Promise<Response>;
 export function createHttpClient(base: () => string | undefined, transport: HttpTransport = fetch) {
   return async function request<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal, headers?: HeadersInit, body?: Record<string, string>): Promise<T> {
-    if (!/^\/[a-z0-9/]+(?:\?[^#]*)?$/i.test(path)) throw new ApiError('Rota inválida.', 0, 'CONFIGURATION_ERROR');
+    if (!/^\/[a-z0-9/-]+(?:\?[^#]*)?$/i.test(path)) throw new ApiError('Rota inválida.', 0, 'CONFIGURATION_ERROR');
     const url = apiBase(base()) + path;
     const controller = new AbortController();
     const cancel = () => controller.abort();
