@@ -1,0 +1,44 @@
+{
+    "time": "2026-09-25T19:31:20-03:00",
+    "remaining_monthly_permissions": 0,
+    "synthetic_accounts": [
+        {
+            "id": 16,
+            "status": "bloqueado"
+        },
+        {
+            "id": 17,
+            "status": "bloqueado"
+        }
+    ],
+    "monthly_states": [
+        {
+            "id": 1,
+            "estado": "cancelada",
+            "valor_centavos": 11990,
+            "asaas_payment_id": null
+        },
+        {
+            "id": 2,
+            "estado": "paga",
+            "valor_centavos": 11990,
+            "asaas_payment_id": "pay_wbznx0ad3s4ys4b7"
+        }
+    ],
+    "active_synthetic_sessions": 0,
+    "actual_webhooks": [
+        {
+            "id": 37,
+            "tipo_evento": "PAYMENT_CREATED",
+            "status_processamento": "processado",
+            "quantidade_tentativas": 1
+        },
+        {
+            "id": 38,
+            "tipo_evento": "PAYMENT_CONFIRMED",
+            "status_processamento": "processado",
+            "quantidade_tentativas": 1
+        }
+    ],
+    "credential_files_remaining": 0
+}

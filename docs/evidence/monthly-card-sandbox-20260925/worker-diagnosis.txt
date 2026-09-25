@@ -1,0 +1,7 @@
+{
+    "mutations_enabled": true,
+    "registry_valid": true,
+    "identity_matches": true,
+    "failed_stage": "manifest",
+    "error": "Release file checksum mismatch: app\/api\/MobileAuthApi.php"
+}

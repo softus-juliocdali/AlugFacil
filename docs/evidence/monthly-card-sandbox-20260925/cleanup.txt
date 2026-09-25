@@ -1,0 +1,11 @@
+{
+    "temporary_authorizations_removed": true,
+    "registry_restored_exactly": true,
+    "synthetic_accounts_disabled": 2,
+    "sessions_revoked": true,
+    "session_after_revocation_http": 302,
+    "temporary_credentials_deleted": true,
+    "financial_evidence_retained": true,
+    "new_monthly_generation_disabled_for_fixtures": true,
+    "global_unchanged": true
+}

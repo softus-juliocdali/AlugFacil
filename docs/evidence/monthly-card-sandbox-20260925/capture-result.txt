@@ -1,0 +1,53 @@
+health=200
+{
+    "authorized_obligation": 1,
+    "expires_at": 1790381849
+}
+{
+    "mobile_login": 200,
+    "bridge": 200,
+    "exchange": 303
+}
+{
+    "checkout_post_http": 302,
+    "get_http": 200
+}
+{
+    "mode": "post",
+    "page_http": 200,
+    "awaiting": true,
+    "paid": false,
+    "card_form": true,
+    "hosted_asaas_opened": false,
+    "messages": [
+        "Asaas retornou HTTP 400. Operacao registrada para acompanhamento.\n            ×"
+    ]
+}
+{
+    "time": "2026-09-25T19:17:30-03:00",
+    "obligation": {
+        "id": 1,
+        "chacara_id": 6,
+        "proprietario_id": 8,
+        "estado": "pendente",
+        "forma_pagamento": "CREDIT_CARD",
+        "valor_centavos": 11990,
+        "vencimento": "2026-09-25",
+        "asaas_payment_id": null,
+        "operacao_id": null
+    },
+    "operations": [
+        {
+            "id": 6623,
+            "tipo": "customer",
+            "entidade": "usuario:16",
+            "estado": "recusada",
+            "tentativas": 1,
+            "http_status": 400,
+            "erro_codigo": "HTTP_400_invalid_mobilePhone",
+            "referencia": "af_3b33ea40750b77dd289001351995f82c_27a25038060cecb2e391f95c99cb7a6dee935493"
+        }
+    ],
+    "billing": [],
+    "monthly": []
+}

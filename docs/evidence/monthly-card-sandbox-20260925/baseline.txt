@@ -1,0 +1,61 @@
+{
+    "mobile_login": 200,
+    "bridge": 200,
+    "exchange": 303
+}
+{
+    "checkout_post_http": 302,
+    "get_http": 200
+}
+{
+    "mode": "before",
+    "page_http": 200,
+    "awaiting": true,
+    "paid": false,
+    "card_form": true,
+    "hosted_asaas_opened": false,
+    "messages": [
+        "Mensalidades bloqueadas neste ambiente: a política Sandbox autoriza apenas cobranças de reservas por PIX/boleto. Nenhuma cobrança mensal foi enviada.\n            ×"
+    ]
+}
+{
+    "time": "2026-09-25T19:15:58-03:00",
+    "obligation": {
+        "id": 1,
+        "chacara_id": 6,
+        "proprietario_id": 8,
+        "estado": "pendente",
+        "forma_pagamento": null,
+        "valor_centavos": 11990,
+        "vencimento": "2026-09-25",
+        "asaas_payment_id": null,
+        "operacao_id": null
+    },
+    "operations": [],
+    "billing": [],
+    "monthly": []
+}
+{
+    "http": 200,
+    "webhooks": [
+        {
+            "id": "0f593fc7-e62f-49af-ab45-14e637a7f3a1",
+            "url": "https://alugfacil.net.br/webhook_asaas.php",
+            "enabled": true,
+            "interrupted": false,
+            "events": [
+                "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+                "PAYMENT_PARTIALLY_REFUNDED",
+                "PAYMENT_CONFIRMED",
+                "PAYMENT_REFUNDED",
+                "PAYMENT_OVERDUE",
+                "PAYMENT_CREATED",
+                "PAYMENT_DELETED",
+                "PAYMENT_RECEIVED",
+                "PAYMENT_UPDATED"
+            ],
+            "token_returned": false,
+            "token_matches": false
+        }
+    ]
+}

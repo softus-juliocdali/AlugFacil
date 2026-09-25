@@ -1,0 +1,31 @@
+{
+    "audited_documents": 9,
+    "forbidden_card_or_secret_keys": 0,
+    "pan_matches": 0,
+    "logs": {
+        "logs/app.log": {
+            "pan_matches": 0
+        },
+        "nginx/access.log": {
+            "pan_matches": 0
+        },
+        "nginx/error.log": {
+            "pan_matches": 0
+        }
+    },
+    "synthetic_properties": [
+        {
+            "id": 6,
+            "status_operacional": "indisponivel"
+        },
+        {
+            "id": 7,
+            "status_operacional": "indisponivel"
+        }
+    ],
+    "global": {
+        "valor_padrao_centavos": 11990,
+        "ativa": true,
+        "versao": 1
+    }
+}

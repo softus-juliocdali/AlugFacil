@@ -1,0 +1,111 @@
+{
+    "mobile_login": 200,
+    "bridge": 200,
+    "exchange": 303
+}
+{
+    "checkout_post_http": 302,
+    "get_http": 200
+}
+{
+    "mode": "repeat",
+    "page_http": 200,
+    "awaiting": false,
+    "paid": true,
+    "card_form": false,
+    "hosted_asaas_opened": false
+}
+{
+    "time": "2026-09-25T19:21:57-03:00",
+    "obligation": {
+        "id": 2,
+        "chacara_id": 7,
+        "proprietario_id": 9,
+        "estado": "pendente",
+        "forma_pagamento": "CREDIT_CARD",
+        "valor_centavos": 11990,
+        "vencimento": "2026-09-25",
+        "asaas_payment_id": "pay_wbznx0ad3s4ys4b7",
+        "operacao_id": 6625
+    },
+    "operations": [
+        {
+            "id": 6624,
+            "tipo": "customer",
+            "entidade": "usuario:17",
+            "estado": "concluida",
+            "tentativas": 1,
+            "http_status": 200,
+            "erro_codigo": null,
+            "referencia": "af_3b33ea40750b77dd289001351995f82c_280010df85280992f908d6204f31bb89ba073e4c"
+        },
+        {
+            "id": 6625,
+            "tipo": "cobranca",
+            "entidade": "mensalidade:2",
+            "estado": "concluida",
+            "tentativas": 1,
+            "http_status": 200,
+            "erro_codigo": null,
+            "referencia": "af_3b33ea40750b77dd289001351995f82c_b19a0ad92dd0739f8105e8952604a9723b1356b1"
+        },
+        {
+            "id": 6626,
+            "tipo": "checkout",
+            "entidade": "mensalidade-cartao:2",
+            "estado": "concluida",
+            "tentativas": 1,
+            "http_status": 200,
+            "erro_codigo": null,
+            "referencia": "af_3b33ea40750b77dd289001351995f82c_b6ecf08e039dd1597863f5435eaa39d3215d13f2"
+        }
+    ],
+    "billing": [
+        {
+            "status": "PENDENTE",
+            "valor_centavos": 11990,
+            "asaas_event_id": null
+        }
+    ],
+    "monthly": [
+        {
+            "status": "PENDENTE"
+        }
+    ]
+}
+{
+    "asaas": {
+        "id": "pay_wbznx0ad3s4ys4b7",
+        "value": 119.9,
+        "billingType": "CREDIT_CARD",
+        "status": "CONFIRMED",
+        "dueDate": "2026-09-25",
+        "_http_status": 200
+    }
+}
+{
+    "asaas_payments_for_reference": 1,
+    "has_more": false
+}
+{
+    "actual_webhooks": [
+        {
+            "id": 37,
+            "asaas_event_id": "evt_05b708f961d739ea7eba7e4db318f621&20223615",
+            "tipo_evento": "PAYMENT_CREATED",
+            "status_processamento": "recebido",
+            "quantidade_tentativas": 0,
+            "recebido_em": "2026-09-25 19:18:23.923422",
+            "processado_em": null
+        },
+        {
+            "id": 38,
+            "asaas_event_id": "evt_15e444ff9b9ab9ec29294aa1abe68025&20223620",
+            "tipo_evento": "PAYMENT_CONFIRMED",
+            "status_processamento": "recebido",
+            "quantidade_tentativas": 0,
+            "recebido_em": "2026-09-25 19:18:26.790577",
+            "processado_em": null
+        }
+    ]
+}
