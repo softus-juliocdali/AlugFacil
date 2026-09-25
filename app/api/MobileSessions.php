@@ -27,7 +27,7 @@ final class MobileSessions
     public static function dto(array $user): array
     {
         return ['id' => (int) $user['id'], 'nome' => $user['nome'], 'email' => $user['email'],
-            'telefone' => $user['telefone'], 'tipo_usuario' => 'cliente'];
+            'telefone' => $user['telefone'], 'tipo_usuario' => $user['tipo_usuario']];
     }
 
     public function create(array $user, ?string $device): array
@@ -36,7 +36,7 @@ final class MobileSessions
         try {
             // Serialize against password/status updates before issuing a new session.
             $current = $this->row('SELECT * FROM usuarios WHERE id=:id FOR SHARE', ['id' => $user['id']]);
-            if (!$current || $current['status'] !== 'ativo' || $current['tipo_usuario'] !== 'cliente'
+            if (!$current || $current['status'] !== 'ativo' || !in_array($current['tipo_usuario'], ['cliente', 'proprietario'], true)
                 || !hash_equals($user['senha_hash'], $current['senha_hash'])) throw self::invalid();
             $id = bin2hex(random_bytes(16));
             $this->execute('INSERT INTO mobile_sessions(id,usuario_id,credential_stamp,device_name,expires_at) VALUES(:id,:user,:stamp,:device,clock_timestamp() + make_interval(secs => :ttl))',
@@ -74,7 +74,7 @@ final class MobileSessions
     {
         $user = $this->row('SELECT * FROM usuarios WHERE id=:id FOR SHARE', ['id' => $s['usuario_id']]);
         $reason = $s['revoked_at'] !== null ? 'revoked' : (strtotime($s['expires_at']) <= time() ? 'absolute_expiry' : null);
-        if (!$user || $user['status'] !== 'ativo' || $user['tipo_usuario'] !== 'cliente') $reason = 'account_unavailable';
+        if (!$user || $user['status'] !== 'ativo' || !in_array($user['tipo_usuario'], ['cliente', 'proprietario'], true)) $reason = 'account_unavailable';
         elseif (!hash_equals($s['credential_stamp'], hash('sha256', $user['senha_hash']))) $reason = 'password_changed';
         if ($reason !== null) {
             $this->revoke($s['id'], $reason);

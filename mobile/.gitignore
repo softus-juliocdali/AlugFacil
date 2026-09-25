@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+dist-native/
+dist-owner/
+coverage/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+expo-env.d.ts
+*.tsbuildinfo
+android/
+ios/

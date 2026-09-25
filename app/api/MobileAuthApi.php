@@ -52,7 +52,7 @@ final class MobileAuthApi
             } else {
                 $user = $model->findByEmail($input['email']);
                 if (!AccountCredentials::verify($user, $input['senha'])) throw new ApiException(401, 'INVALID_CREDENTIALS', 'E-mail ou senha incorretos.');
-                if ($user['status'] !== 'ativo' || $user['tipo_usuario'] !== 'cliente') throw new ApiException(403, 'ACCOUNT_UNAVAILABLE', 'Esta conta não pode acessar o aplicativo de clientes.');
+                if ($user['status'] !== 'ativo' || !in_array($user['tipo_usuario'], ['cliente', 'proprietario'], true)) throw new ApiException(403, 'ACCOUNT_UNAVAILABLE', 'Esta conta não pode acessar o aplicativo.');
             }
             $pair = $sessions->create($user, $input['device_name'] ?? null);
         }

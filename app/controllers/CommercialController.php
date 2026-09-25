@@ -28,6 +28,7 @@ final class CommercialController extends Controller
  public function invoice(string $id):void
  {
   $p=Auth::requireProprietarioOperacional();verify_csrf();$oid=filter_var($id,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$oid){http_response_code(404);return;}
+  if (isset($_SESSION['_mobile_session_id'])) $this->redirect('/mobile/mensalidades/'.$oid);
   try{$o=(new MonthlyBillingService())->issue($oid,(int)$p['id'],(string)($_POST['forma_pagamento']??''));$url=$o['invoice_url']??'';if(!preg_match('#^https://([a-z0-9-]+\.)*asaas\.com(?:/|$)#i',$url))throw new RuntimeException('Fatura ainda nao disponivel.');header('Location: '.$url,true,303);exit;}catch(Throwable $e){flash('error',\App\Services\FinancialErrorMessage::publicMessage($e,'Nao foi possivel preparar a fatura.'));$this->redirect('/proprietario/mensalidades');}
  }
 }

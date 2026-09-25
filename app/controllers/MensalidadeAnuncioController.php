@@ -45,6 +45,13 @@ final class MensalidadeAnuncioController extends Controller
         $p=Auth::requireProprietarioAutenticado();$chacara=filter_var($id,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($chacara===false)$this->notFound();
         $itens=(new MensalidadeAnuncio())->listarPorProprietario((int)$p['id']);$item=null;foreach($itens as $i)if((int)$i['chacara_id']===(int)$chacara){$item=$i;break;}
         if(!$item)$this->notFound();$url=trim((string)($item['invoice_url']??''));if($url===''||!preg_match('#^https://([a-z0-9-]+\.)*asaas\.com(?:/|$)#i',$url)){flash('error','A cobranca ainda esta sendo preparada pelo Asaas. Tente novamente em instantes.');$this->redirect('/proprietario/mensalidades');}
+        if (isset($_SESSION['_mobile_session_id'])) {
+            $q=\App\Core\Database::getConnection()->prepare('SELECT id FROM obrigacoes_mensalidades WHERE chacara_id=:c AND proprietario_id=:p AND invoice_url=:url ORDER BY id DESC LIMIT 1');
+            $q->execute(['c'=>$chacara,'p'=>$p['id'],'url'=>$url]);$obligation=$q->fetchColumn();
+            if ($obligation) $this->redirect('/mobile/mensalidades/'.$obligation);
+            flash('error','Cobrança legada sem obrigação vinculada. Consulte o suporte; nenhuma nova cobrança foi gerada.');
+            $this->redirect('/proprietario/mensalidades');
+        }
         header('Location: '.$url,true,302);exit;
     }
     private function notFound():never{http_response_code(404);$this->view('public/404',['title'=>'Registro nao encontrado']);exit;}

@@ -19,7 +19,7 @@ final class Auth
     public static function login(array $user): void
     {
         session_regenerate_id(true);
-        unset($_SESSION['_auth_affiliate_id']);
+        unset($_SESSION['_auth_affiliate_id'], $_SESSION['_mobile_session_id'], $_SESSION['_mobile_role']);
         $_SESSION['user'] = [
             'id' => (int) $user['id'],
             'nome' => $user['nome'],
@@ -31,12 +31,16 @@ final class Auth
 
     public static function logout(): void
     {
-        unset($_SESSION['user'], $_SESSION['_old'], $_SESSION['_old_next'], $_SESSION['_auth_affiliate_id']);
+        unset($_SESSION['user'], $_SESSION['_old'], $_SESSION['_old_next'], $_SESSION['_auth_affiliate_id'], $_SESSION['_mobile_session_id'], $_SESSION['_mobile_role']);
         session_regenerate_id(true);
     }
 
     public static function requireLogin(): void
     {
+        if (isset($_SESSION['_mobile_session_id'])) {
+            $linked = \App\Api\MobileWebSession::linkedUser((string) $_SESSION['_mobile_session_id'], (int) (self::user()['id'] ?? 0));
+            if (!$linked || $linked['tipo_usuario'] !== ($_SESSION['_mobile_role'] ?? null)) self::logout();
+        }
         if (!self::check()) {
             self::rememberReturnPath();
             flash('error', 'Faça login para acessar esta área.');

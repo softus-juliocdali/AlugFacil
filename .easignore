@@ -1,0 +1,14 @@
+# Only the current mobile app belongs in the cloud build archive.
+/*
+!/mobile
+/mobile/*
+!/mobile/app
+!/mobile/src
+!/mobile/assets
+!/mobile/plugins
+!/mobile/app.json
+!/mobile/app.config.js
+!/mobile/eas.json
+!/mobile/package.json
+!/mobile/package-lock.json
+!/mobile/tsconfig.json

@@ -23,6 +23,9 @@ use App\Core\Database;
 use App\Core\Router;
 
 return static function (Router $router, array $config): void {
+    $router->post('/mobile/entrar', [\App\Controllers\MobileWebController::class, 'enter']);
+    $router->get('/mobile/mensalidades/{id}', [\App\Controllers\MobileMonthlyController::class, 'show']);
+    $router->post('/mobile/mensalidades/{id}', [\App\Controllers\MobileMonthlyController::class, 'pay']);
     $router->get('/', [HomeController::class, 'index']);
     $router->get('/chacara/{id}', [ChacaraController::class, 'show']);
     $router->get('/chacara/{id}/reservar', [ChacaraController::class, 'reserve']);

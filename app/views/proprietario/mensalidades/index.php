@@ -20,7 +20,8 @@ $money=static fn(?int $v):string=>'R$ '.number_format(((int)$v)/100,2,',','.');
 <?php if(!$obrigacoes): ?><div class="empty-preview"><div><strong>Nenhuma obrigação emitida</strong><p>As obrigações mensais aparecerão aqui quando forem emitidas.</p></div></div><?php endif; ?>
 <?php foreach($obrigacoes as $obrigacao): ?>
 <article class="owner-obligation"><h3><?= e($obrigacao['chacara_nome']) ?></h3><p><?= e($obrigacao['vencimento']) ?> — <?= e($money((int)$obrigacao['valor_centavos'])) ?> — <?= e($obrigacao['estado']) ?></p>
-<?php if($obrigacao['estado']==='pendente'): ?><form class="owner-obligation-form" method="post" action="<?= url('/proprietario/obrigacoes-mensais/'.(int)$obrigacao['id'].'/pagar') ?>">
+<?php if($obrigacao['estado']==='pendente' && isset($_SESSION['_mobile_session_id'])): ?><a class="btn btn-primary" href="<?= url('/mobile/mensalidades/'.(int)$obrigacao['id']) ?>">Ver pagamento da mensalidade</a>
+<?php elseif($obrigacao['estado']==='pendente'): ?><form class="owner-obligation-form" method="post" action="<?= url('/proprietario/obrigacoes-mensais/'.(int)$obrigacao['id'].'/pagar') ?>">
 <?= csrf_field() ?>
 <?php if($obrigacao['forma_pagamento']): ?><input type="hidden" name="forma_pagamento" value="<?= e($obrigacao['forma_pagamento']) ?>"><p>Meio escolhido: <?= $obrigacao['forma_pagamento']==='PIX'?'PIX':'Cartão' ?></p>
 <?php else: ?><label>Forma de pagamento<select name="forma_pagamento"><option value="PIX">PIX</option><option value="CREDIT_CARD">Cartão na página do Asaas</option></select></label><?php endif; ?>
