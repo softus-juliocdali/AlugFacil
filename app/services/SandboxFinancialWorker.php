@@ -4,7 +4,7 @@ namespace App\Services;
 use PDO;
 use Throwable;
 
-/** Operational worker restricted to explicitly registered synthetic reservations. */
+/** Operational worker restricted to explicitly registered synthetic financial tests. */
 final class SandboxFinancialWorker
 {
  public function __construct(private PDO $db,private ?AsaasPaymentClientInterface $gateway=null){}
@@ -13,6 +13,13 @@ final class SandboxFinancialWorker
   $registry=FinancialReleasePolicy::registry();$out=['webhooks'=>0,'reconciled'=>0,'expired'=>0,'delinquent'=>0,'jobs'=>0,'deferred'=>0,'transfers_enabled'=>false];
   if(!$this->db->query('SELECT pg_try_advisory_lock(741075,23)')->fetchColumn())throw new \RuntimeException('Migracao ou worker em andamento.');
   try{
+   // Consume authentic monthly webhook inbox entries only for scoped synthetic card tests.
+   // No charge creation, capture, refund or transfer occurs in this branch.
+   foreach(FinancialReleasePolicy::monthlyCardWebhookObligations() as $oid){
+    if(--$limit<0)break;
+    $q=$this->db->prepare("SELECT e.id FROM asaas_webhook_eventos e JOIN obrigacoes_mensalidades o ON o.asaas_payment_id=e.asaas_payment_id WHERE o.id=:o AND e.status_processamento IN ('recebido','erro') ORDER BY e.id LIMIT 100");$q->execute(['o'=>$oid]);
+    foreach($q->fetchAll(PDO::FETCH_COLUMN) as $eid){$state=(new AsaasWebhookService($this->db))->processarPorId((int)$eid,true);if($state==='processado')$out['webhooks']++;else $out['deferred']++;}
+   }
    $rows=$this->db->query("SELECT id,usuario_id,chacara_id,proprietario_id FROM reservas WHERE schema_financeiro=2 AND status_reserva NOT IN ('finalizada','estornada') ORDER BY id")->fetchAll();
    $billing=new ReservationBillingService($this->db,$this->gateway);
    foreach($rows as $row){

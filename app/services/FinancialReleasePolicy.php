@@ -38,19 +38,31 @@ final class FinancialReleasePolicy
     }
 
     /** Explicit, expiring permission for ONE synthetic obligation; never a global card switch. */
-    private static function monthlyCardTest(array $registry,int $obligation,?int $owner=null): ?array
+    private static function monthlyCardTest(array $registry,int $obligation,?int $owner=null,bool $capture=true): ?array
     {
         foreach($registry['monthly_card_tests']??[] as $test){
             if(!is_array($test) || ($test['synthetic']??false)!==true || ($test['obligation_id']??null)!==$obligation || !is_int($test['expires_at']??null) || $test['expires_at']<time() || $test['expires_at']>$registry['expires_at'])continue;
             $q=\App\Core\Database::getConnection()->prepare("SELECT o.*,p.usuario_id,u.status usuario_status,p.status proprietario_status,c.status_aprovacao,c.status_operacional FROM obrigacoes_mensalidades o JOIN proprietarios p ON p.id=o.proprietario_id JOIN usuarios u ON u.id=p.usuario_id JOIN chacaras c ON c.id=o.chacara_id AND c.proprietario_id=p.id WHERE o.id=:id");
             $q->execute(['id'=>$obligation]);$row=$q->fetch();
-            if(!$row || ($owner!==null && (int)$row['proprietario_id']!==$owner) || $row['estado']!=='pendente' || !in_array($row['forma_pagamento'],[null,'CREDIT_CARD'],true) || $row['usuario_status']!=='ativo' || $row['proprietario_status']!=='ativo' || $row['status_aprovacao']!=='aprovada' || $row['status_operacional']!=='indisponivel')return null;
+            if(!$row || ($owner!==null && (int)$row['proprietario_id']!==$owner) || ($capture && $row['estado']!=='pendente') || !in_array($row['forma_pagamento'],[null,'CREDIT_CARD'],true) || $row['usuario_status']!=='ativo' || $row['proprietario_status']!=='ativo' || $row['status_aprovacao']!=='aprovada' || $row['status_operacional']!=='indisponivel')return null;
             foreach(['owner_id'=>'proprietario_id','user_id'=>'usuario_id','property_id'=>'chacara_id','value_centavos'=>'valor_centavos'] as $key=>$column)if(!is_int($test[$key]??null) || $test[$key] !== (int)$row[$column])return null;
             // This test profile must respect the gateway minimum already verified for this account.
             if((int)$row['valor_centavos']<1500)return null;
             return $row;
         }
         return null;
+    }
+
+    /** Receiving later events never authorizes another capture or a new monthly charge. */
+    public static function monthlyCardWebhookObligations(): array
+    {
+        $registry=self::registry();$ids=[];
+        foreach($registry['monthly_card_tests']??[] as $test){
+            if(!is_array($test) || !is_int($test['obligation_id']??null))continue;
+            $row=self::monthlyCardTest($registry,$test['obligation_id'],null,false);
+            if($row && $row['forma_pagamento']==='CREDIT_CARD' && !empty($row['asaas_payment_id']))$ids[]=(int)$row['id'];
+        }
+        return array_values(array_unique($ids));
     }
 
     private static function monthlyCustomerAllowed(array $registry,int $user): bool
