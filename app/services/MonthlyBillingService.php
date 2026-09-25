@@ -18,7 +18,7 @@ final class MonthlyBillingService
             if(!$o||$o['estado']!=='pendente')throw new RuntimeException('Obrigacao indisponivel para este proprietario.');
             if($o['forma_pagamento']!==null&&$o['forma_pagamento']!==$method)throw new RuntimeException('Ja existe instrumento escolhido. Concilie ou cancele antes de trocar o meio.');
             if($o['asaas_payment_id']){$this->db->commit();return $o;}
-            if($this->client===null || $this->client instanceof AsaasHttpClient) FinancialReleasePolicy::assertMonthlyPaymentsAllowed();
+            if($this->client===null || $this->client instanceof AsaasHttpClient) FinancialReleasePolicy::assertMonthlyPaymentsAllowed($id,$owner,$method);
             $this->db->prepare('UPDATE obrigacoes_mensalidades SET forma_pagamento=:m WHERE id=:id')->execute(['m'=>$method,'id'=>$id]);$this->db->commit();
         }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
         $client=$this->client??=new AsaasHttpClient();

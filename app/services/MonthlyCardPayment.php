@@ -18,7 +18,7 @@ final class MonthlyCardPayment
         if (!$o) throw new \DomainException('Obrigação não encontrada.');
         if ($o['estado']==='paga') return ['status'=>'CONFIRMED'];
         if ($o['estado']!=='pendente' || ($o['forma_pagamento']!==null && $o['forma_pagamento']!=='CREDIT_CARD')) throw new RuntimeException('Esta obrigação não está disponível para cartão. Atualize o pagamento existente.');
-        if ($this->client===null || $this->client instanceof AsaasHttpClient) FinancialReleasePolicy::assertMonthlyPaymentsAllowed();
+        if ($this->client===null || $this->client instanceof AsaasHttpClient) FinancialReleasePolicy::assertMonthlyPaymentsAllowed($id,$owner,'CREDIT_CARD');
         $client=$this->client ??=new AsaasHttpClient();
         $card=self::payload($input,$ip);
         try {
