@@ -21,7 +21,7 @@ final class PanelController extends Controller
 
     public function favoritosCliente(): void
     {
-        Auth::requireRole('cliente');
+        Auth::requireGuest();
 
         $favoritos = (new Chacara())->listarFavoritosDoUsuario((int) Auth::user()['id']);
 
@@ -34,7 +34,7 @@ final class PanelController extends Controller
 
     public function historicoCliente(): void
     {
-        Auth::requireRole('cliente');
+        Auth::requireGuest();
 
         $reservas = (new Reserva())->listarPorCliente((int) Auth::user()['id']);
 
@@ -47,7 +47,7 @@ final class PanelController extends Controller
 
     public function reservaCliente(string $reservaId): void
     {
-        Auth::requireRole('cliente');
+        Auth::requireGuest();
 
         $id = $this->validarId($reservaId);
         $reserva = (new Reserva())->buscarDetalheCliente($id, (int) Auth::user()['id']);
@@ -155,6 +155,8 @@ final class PanelController extends Controller
             'panelRole' => 'proprietario',
             'usuario' => $this->corrigirCodificacao($usuario),
             'proprietario' => $this->corrigirCodificacao($proprietario),
+            'dados' => (new \App\Models\CadastroProprietario())->buscar((int)$proprietario['id']),
+            'conflitos' => (new \App\Models\CadastroProprietario())->conflitos((int)$proprietario['id']),
         ], 'panel');
     }
 
@@ -162,79 +164,26 @@ final class PanelController extends Controller
     {
         Auth::requireRole('proprietario');
         verify_csrf();
-
-        $userId = (int) Auth::user()['id'];
-        $nome = trim((string) ($_POST['nome'] ?? ''));
-        $telefone = trim((string) ($_POST['telefone'] ?? ''));
-        $cpf = preg_replace('/\D+/', '', (string) ($_POST['cpf'] ?? ''));
-        $email = trim((string) ($_POST['email'] ?? ''));
-        $senha = (string) ($_POST['senha'] ?? '');
-
-        set_old([
-            'nome' => $nome,
-            'telefone' => $telefone,
-            'cpf' => $this->formatarCpf($cpf),
-            'email' => $email,
-        ]);
-
-        if (mb_strlen($nome) < 2) {
-            flash('error', 'Informe seu nome completo.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        }
-
-        if (!$this->cpfValido($cpf)) {
-            flash('error', 'Informe um CPF valido.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        }
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            flash('error', 'Informe um e-mail valido.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        }
-
-        if ($senha !== '' && mb_strlen($senha) < 6) {
-            flash('error', 'A nova senha deve ter pelo menos 6 caracteres.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        }
-
-        $model = new User();
-
-        if ($model->findOwnerByUserId($userId) === null) {
-            flash('error', 'Nao foi possivel localizar seu cadastro de proprietario.');
-            $this->redirect('/proprietario/dashboard');
-        }
-
-        if ($model->emailExistsForAnotherUser($email, $userId)) {
-            flash('error', 'Este e-mail ja esta em uso por outra conta.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        }
-
-        if ($model->cpfExistsForAnotherOwner($cpf, $userId)) {
-            flash('error', 'Este CPF ja esta em uso por outro proprietario.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        }
-
+        $input = array_intersect_key($_POST, array_flip(array_merge(
+            \App\Services\CadastroBackfillService::FIELDS,
+            ['renda_faturamento_mensal','versao_cadastro','confirmar_correcao','motivo_correcao','senha']
+        )));
+        $old = $input;
+        unset($old['senha']);
+        set_old($old);
         try {
-            $model->updateOwnerData($userId, [
-                'nome' => $nome,
-                'telefone' => $telefone,
-                'cpf' => $cpf,
-                'email' => $email,
-                'senha' => $senha,
-            ]);
-
-            $_SESSION['user'] = array_merge($_SESSION['user'], [
-                'nome' => $nome,
-                'email' => $email,
-            ]);
-
+            (new User())->updateOwnerData((int) Auth::user()['id'], $input);
+            $updated=(new User())->findById((int) Auth::user()['id']);
+            $_SESSION['user']=array_merge($_SESSION['user'],array_intersect_key($updated,array_flip(['nome','email'])));
             clear_old();
-            flash('success', 'Seus dados cadastrais foram atualizados com sucesso.');
-            $this->redirect('/proprietario/dados-cadastrais');
-        } catch (Throwable) {
-            flash('error', 'Nao foi possivel atualizar seus dados cadastrais agora.');
-            $this->redirect('/proprietario/dados-cadastrais');
+            flash('success','Dados cadastrais atualizados. Estes dados tambem serao usados para recebimentos.');
+        } catch (\DomainException $e) {
+            flash('error',$e->getMessage());
+        } catch (Throwable $e) {
+            app_log('Falha ao salvar cadastro canonico; usuario_id='.(int)Auth::user()['id'].'; classe='.get_class($e));
+            flash('error','Nao foi possivel salvar. Confira os dados ou tente novamente.');
         }
+        $this->redirect('/proprietario/dados-cadastrais');
     }
 
     public function proprietario(): void

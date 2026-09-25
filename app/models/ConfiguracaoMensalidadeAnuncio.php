@@ -37,9 +37,10 @@ final class ConfiguracaoMensalidadeAnuncio
     public function historico(int $limite = 30): array
     {
         $statement = $this->db->prepare(
-            'SELECT h.*, u.nome AS administrador_nome
-             FROM historico_configuracoes_mensalidades_anuncios h
+            'SELECT h.id,h.criado_em,h.motivo,h.administrador_id,(h.anterior->>\'valor_padrao_centavos\')::bigint AS valor_anterior_centavos,(h.nova->>\'valor_padrao_centavos\')::bigint AS valor_novo_centavos,u.nome AS administrador_nome
+             FROM historico_condicoes_comerciais h
              LEFT JOIN usuarios u ON u.id = h.administrador_id
+             WHERE h.tipo=\'global\'
              ORDER BY h.criado_em DESC, h.id DESC
              LIMIT :limite'
         );
@@ -49,54 +50,6 @@ final class ConfiguracaoMensalidadeAnuncio
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function salvar(int $valorCentavos, int $administradorId, string $motivo): void
-    {
-        if ($valorCentavos < 100) {
-            throw new RuntimeException('O valor padrao deve ser de pelo menos R$ 1,00.');
-        }
-
-        $motivo = trim($motivo);
-        if ($motivo === '') {
-            throw new RuntimeException('Informe o motivo da alteracao do valor padrao.');
-        }
-
-        $this->db->beginTransaction();
-        try {
-            $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'pgsql' ? ' FOR UPDATE' : '';
-            $atual = $this->db->query(
-                'SELECT valor_padrao_centavos FROM configuracoes_mensalidades_anuncios WHERE id = 1' . $lock
-            )->fetchColumn();
-            if ($atual === false) {
-                throw new RuntimeException('Configuracao padrao de mensalidade nao encontrada.');
-            }
-
-            if ((int) $atual === $valorCentavos) {
-                $this->db->rollBack();
-                return;
-            }
-
-            $this->db->prepare(
-                'UPDATE configuracoes_mensalidades_anuncios
-                 SET valor_padrao_centavos = :valor, atualizado_por = :admin,
-                     atualizada_em = CURRENT_TIMESTAMP
-                 WHERE id = 1'
-            )->execute(['valor' => $valorCentavos, 'admin' => $administradorId]);
-            $this->db->prepare(
-                'INSERT INTO historico_configuracoes_mensalidades_anuncios
-                    (valor_anterior_centavos, valor_novo_centavos, administrador_id, motivo)
-                 VALUES (:anterior, :novo, :admin, :motivo)'
-            )->execute([
-                'anterior' => (int) $atual,
-                'novo' => $valorCentavos,
-                'admin' => $administradorId,
-                'motivo' => mb_substr($motivo, 0, 500),
-            ]);
-            $this->db->commit();
-        } catch (Throwable $exception) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            throw $exception;
-        }
-    }
+    public function salvar(int $valorCentavos,int $administradorId,string $motivo):void
+    {(new \App\Services\CommercialConfigurationService($this->db))->configureGlobal((bool)$this->atual()['ativa'],$valorCentavos,$administradorId,$motivo);}
 }

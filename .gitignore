@@ -14,3 +14,13 @@ Thumbs.db
 # Arquivos enviados em runtime; somente o marcador do diretorio e versionado.
 public/assets/uploads/chacaras/*
 !public/assets/uploads/chacaras/.gitkeep
+
+# Private deployment/runtime state (never source overrides).
+/.financial-release.json
+/storage/cache/
+/storage/tmp/
+/storage/screenshots/
+/storage/financial-migration/
+/storage/financial-release-test/
+/storage/sessions/
+/BACKUP/

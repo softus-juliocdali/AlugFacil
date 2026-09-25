@@ -7,6 +7,9 @@ use PDO;
 
 final class AsaasWebhookEvento
 {
+    public static function validEventId(mixed $id): bool
+    { return is_string($id) && preg_match('/^[a-zA-Z0-9_&-]{1,120}$/D', $id) === 1; }
+
     public function __construct(private ?PDO $db = null) { $this->db ??= Database::getConnection(); }
 
     public function receber(array $payload, string $canonicalJson): array
@@ -22,9 +25,9 @@ final class AsaasWebhookEvento
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             'event_id'=>(string)$payload['id'], 'tipo'=>(string)$payload['event'],
-            'recurso'=>isset($payload['payment'])?'payment':'unknown',
+            'recurso'=>isset($payload['payment'])?'payment':(isset($payload['transfer'])?'transfer':'unknown'),
             'payment_id'=>$payment['id'] ?? null, 'external_reference'=>$payment['externalReference'] ?? null,
-            'payload'=>$canonicalJson, 'hash'=>$hash,
+            'payload'=>json_encode(\App\Services\FinancialPayloadFilter::sanitize($payload),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR), 'hash'=>$hash,
         ]);
         $created = $stmt->fetch();
         if ($created) return ['created'=>true,'divergent'=>false,'event'=>$created];

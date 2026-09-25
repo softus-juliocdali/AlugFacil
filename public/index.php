@@ -22,6 +22,12 @@ spl_autoload_register(function (string $class): void {
     }
 });
 
+// API requests must leave this entry point before any Web session or HTML handler.
+if (\App\Api\PublicApi::matches($_SERVER['REQUEST_URI'] ?? '/', $_SERVER['SCRIPT_NAME'] ?? '')) {
+    (new \App\Api\PublicApi())->run();
+    exit;
+}
+
 // Falhas de configuracao devem ser registradas, nunca exibidas ao visitante.
 ini_set('display_errors', '0');
 error_reporting(E_ALL);

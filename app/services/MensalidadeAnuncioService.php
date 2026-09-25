@@ -13,63 +13,8 @@ final class MensalidadeAnuncioService
     public function __construct(private ?PDO $db=null,private ?AsaasPaymentClientInterface $client=null)
     { $this->db??=Database::getConnection(); }
 
-    public function configurar(int $chacaraId,bool $ativa,?int $valorCentavos,int $adminId): array
-    {
-        if($ativa&&($valorCentavos===null||$valorCentavos<100))throw new RuntimeException('Informe um valor mensal de pelo menos R$ 1,00.');
-        $s=$this->db->prepare('SELECT c.id,c.nome,c.proprietario_id,p.nome,p.email,p.telefone,p.afiliado_id,u.id usuario_id,u.nome usuario_nome,u.email usuario_email FROM chacaras c INNER JOIN proprietarios p ON p.id=c.proprietario_id INNER JOIN usuarios u ON u.id=p.usuario_id WHERE c.id=:id LIMIT 1');
-        $s->execute(['id'=>$chacaraId]);$chacara=$s->fetch(PDO::FETCH_ASSOC);if(!$chacara)throw new RuntimeException('Chacara nao encontrada.');
-        AffiliateMonthlyFeePolicy::assertConfigurationAllowed($chacara, $ativa);
-        $atual=$this->buscarPorChacara($chacaraId);
-        if(!$ativa){
-            if(!empty($atual['asaas_subscription_id']))$this->client()->cancelarAssinatura((string)$atual['asaas_subscription_id']);
-            $desativada=$this->salvarConfiguracao($chacara,false,null,'SEM_MENSALIDADE',$adminId,$atual,null,null);
-            $this->db->prepare('UPDATE mensalidades_anuncios SET asaas_subscription_id=NULL,proximo_vencimento=NULL,atualizada_em=CURRENT_TIMESTAMP WHERE id=:id')->execute(['id'=>$desativada['id']]);
-            return $this->buscarPorChacara($chacaraId)??$desativada;
-        }
-        $mantemStatus=$atual&&$this->booleano($atual['ativa']??false)?(string)$atual['status']:'PENDENTE';
-        $registro=$this->salvarConfiguracao($chacara,true,$valorCentavos,$mantemStatus,$adminId,$atual,$atual['asaas_customer_id']??null,$atual['asaas_subscription_id']??null);
-        try {
-            $external='mensalidade_chacara_'.$chacaraId;
-            $customer=(string)($registro['asaas_customer_id']??'');
-            if($customer===''){
-                $dados=['id'=>(int)$chacara['usuario_id'],'nome'=>$chacara['usuario_nome']?:$chacara['nome'],'email'=>$chacara['usuario_email']?:$chacara['email'],'telefone'=>$chacara['telefone']??null];
-                $customer=(string)((new AsaasHelper($this->client()))->criarClienteAsaas($dados)['id']??'');
-                if($customer==='')throw new RuntimeException('Asaas nao retornou o cliente do proprietario.');
-            }
-            $subscription=(string)($registro['asaas_subscription_id']??'');
-            $payload=['customer'=>$customer,'billingType'=>'UNDEFINED','value'=>PrecificacaoReservaService::centavosParaDecimal($valorCentavos),'nextDueDate'=>date('Y-m-d'),'cycle'=>'MONTHLY','description'=>'Mensalidade do anuncio - '.$chacara['nome'],'externalReference'=>$external];
-            if($subscription!==''){
-                if((int)($atual['valor_centavos']??0)!==$valorCentavos)$this->client()->atualizarAssinatura($subscription,['value'=>$payload['value'],'description'=>$payload['description']]);
-            }else{
-                $remotas=$this->client()->listarAssinaturas(['externalReference'=>$external,'limit'=>10]);
-                $existente=is_array($remotas['data'][0]??null)?$remotas['data'][0]:null;
-                $criada=$existente??$this->client()->criarAssinatura($payload);
-                $subscription=trim((string)($criada['id']??''));if($subscription==='')throw new RuntimeException('Asaas nao retornou o ID da assinatura.');
-            }
-            $u=$this->db->prepare('UPDATE mensalidades_anuncios SET asaas_customer_id=:customer,asaas_subscription_id=:subscription,proximo_vencimento=COALESCE(proximo_vencimento,CURRENT_DATE),ultima_falha_sincronizacao=NULL,ultima_tentativa_sincronizacao_em=CURRENT_TIMESTAMP,atualizada_em=CURRENT_TIMESTAMP WHERE id=:id RETURNING *');
-            $u->execute(['customer'=>$customer,'subscription'=>$subscription,'id'=>$registro['id']]);
-            $registro=$u->fetch(PDO::FETCH_ASSOC);
-            $this->sincronizarPrimeiraCobranca($registro);
-            return $registro;
-        } catch (Throwable $exception) {
-            $this->db->prepare(
-                'UPDATE mensalidades_anuncios
-                 SET ultima_falha_sincronizacao = :erro,
-                     ultima_tentativa_sincronizacao_em = CURRENT_TIMESTAMP,
-                     atualizada_em = CURRENT_TIMESTAMP
-                 WHERE id = :id'
-            )->execute([
-                'erro' => 'Falha ao sincronizar a assinatura com o Asaas.',
-                'id' => $registro['id'],
-            ]);
-            app_log('Falha ao sincronizar mensalidade no Asaas. chacara_id=' . $chacaraId);
-            throw new RuntimeException(
-                'A mensalidade ficou pendente, mas nao foi possivel sincronizar com o Asaas. Tente novamente.',
-                0,
-                $exception
-            );
-        }
-    }
+    public function configurar(int $chacaraId,bool $ativa,?int $valorCentavos,int $adminId):array
+    {throw new RuntimeException('Configuracao legada encerrada. Use condicoes comerciais e obrigacoes mensais com valor global.');}
 
     private function sincronizarPrimeiraCobranca(array $mensalidade): void
     {
@@ -99,23 +44,34 @@ final class MensalidadeAnuncioService
 
     public function processarPagamento(array $event,array $payment,string $tipo): array
     {
+        $own=!$this->db->inTransaction();if($own)$this->db->beginTransaction();
+        try {$result=$this->processarPagamentoTransacional($event,$payment,$tipo);if($own)$this->db->commit();return $result;}
+        catch(Throwable $e){if($own&&$this->db->inTransaction())$this->db->rollBack();throw $e;}
+    }
+
+    private function processarPagamentoTransacional(array $event,array $payment,string $tipo): array
+    {
+        $new=(new MonthlyBillingService($this->db,$this->client))->processPayment($event,$payment,$tipo);if($new!==null)return $new;
         $pid=trim((string)($payment['id']??''));$subscription=is_array($payment['subscription']??null)?(string)($payment['subscription']['id']??''):(string)($payment['subscription']??'');
         $external=trim((string)($payment['externalReference']??''));$mensalidade=null;
         if($subscription!==''){$s=$this->db->prepare('SELECT * FROM mensalidades_anuncios WHERE asaas_subscription_id=:id'.$this->lockClause());$s->execute(['id'=>$subscription]);$mensalidade=$s->fetch(PDO::FETCH_ASSOC)?:null;}
         if(!$mensalidade&&preg_match('/^mensalidade_chacara_(\d+)$/',$external,$m))$mensalidade=$this->buscarPorChacara((int)$m[1],true);
         if(!$mensalidade)return ['matched'=>false];
-        if(!$this->booleano($mensalidade['ativa']))return ['matched'=>true,'status'=>'processado'];
         $recebido=PrecificacaoReservaService::decimalParaCentavos((string)($payment['value']??$payment['totalValue']??''));
         if($recebido<=0)throw new RuntimeException('Valor da mensalidade ausente ou invalido.');
-        $statusCobranca=match(true){in_array($tipo,['PAYMENT_CONFIRMED','PAYMENT_RECEIVED'],true)=>'PAGA',$tipo==='PAYMENT_OVERDUE'=>'ATRASADA',str_contains($tipo,'REFUND')||str_contains($tipo,'CHARGEBACK')=>'ESTORNADA',$tipo==='PAYMENT_DELETED'=>'CANCELADA',default=>'PENDENTE'};
+        $statusCobranca=match(true){in_array($tipo,['PAYMENT_CONFIRMED','PAYMENT_RECEIVED'],true)=>'PAGA',$tipo==='PAYMENT_OVERDUE'=>'ATRASADA',str_contains($tipo,'CHARGEBACK')=>'ESTORNADA',$tipo==='PAYMENT_DELETED'=>'CANCELADA',default=>'PENDENTE'};
         $sql="INSERT INTO cobrancas_mensalidades(mensalidade_id,asaas_payment_id,asaas_event_id,valor_centavos,status,vencimento,invoice_url,pago_em) VALUES(:m,:p,:e,:v,:s,:due,:url,:paid) ON CONFLICT(asaas_payment_id) DO UPDATE SET asaas_event_id=COALESCE(cobrancas_mensalidades.asaas_event_id,EXCLUDED.asaas_event_id),status=CASE WHEN cobrancas_mensalidades.status='ESTORNADA' THEN cobrancas_mensalidades.status WHEN cobrancas_mensalidades.status='PAGA' AND EXCLUDED.status IN ('PENDENTE','ATRASADA','CANCELADA') THEN cobrancas_mensalidades.status ELSE EXCLUDED.status END,vencimento=COALESCE(EXCLUDED.vencimento,cobrancas_mensalidades.vencimento),invoice_url=COALESCE(EXCLUDED.invoice_url,cobrancas_mensalidades.invoice_url),pago_em=COALESCE(cobrancas_mensalidades.pago_em,EXCLUDED.pago_em),atualizada_em=CURRENT_TIMESTAMP";
         $this->db->prepare($sql)->execute(['m'=>$mensalidade['id'],'p'=>$pid,'e'=>$event['asaas_event_id'],'v'=>$recebido,'s'=>$statusCobranca,'due'=>$payment['dueDate']??null,'url'=>$payment['invoiceUrl']??null,'paid'=>$statusCobranca==='PAGA'?($payment['paymentDate']??$payment['confirmedDate']??date(DATE_ATOM)):null]);
+        $q=$this->db->prepare('SELECT id,valor_centavos FROM cobrancas_mensalidades WHERE asaas_payment_id=:p');$q->execute(['p'=>$pid]);$stored=$q->fetch();
+        if((int)$stored['valor_centavos']!==$recebido)throw new RuntimeException('Valor recebido diverge da cobranca mensal.');
+        $charge=(int)$stored['id'];$refund=(new MonthlyRefundService($this->db))->reconcile($charge,$payment,$tipo);
+        if($refund['complete']){$this->db->prepare("UPDATE cobrancas_mensalidades SET status='ESTORNADA' WHERE id=:id")->execute(['id'=>$charge]);$statusCobranca='ESTORNADA';}
         $novo=$this->calcularStatusFinanceiro((int)$mensalidade['id']);
         $due=trim((string)($payment['dueDate']??''));$next=$due!==''?date('Y-m-d',strtotime($due.($statusCobranca==='PAGA'?' +1 month':''))):null;
         $this->db->prepare('UPDATE mensalidades_anuncios SET proximo_vencimento=COALESCE(:next,proximo_vencimento),atualizada_em=CURRENT_TIMESTAMP WHERE id=:id')->execute(['next'=>$next,'id'=>$mensalidade['id']]);
         if($novo!==(string)$mensalidade['status'])$this->alterarStatus($mensalidade,$novo,'webhook',(string)$event['asaas_event_id'],$payment);
-        (new AffiliateCommissionService($this->db))->processMonthlyPayment($event,$payment,$tipo);
-        return ['matched'=>true,'status'=>'processado'];
+        (new AffiliateCommissionService($this->db))->processMonthlyPayment($event,$payment,$refund['complete']?'PAYMENT_REFUNDED':$tipo);
+        return ['matched'=>true,'status'=>$refund['divergent']?'divergente':'processado'];
     }
 
     private function salvarConfiguracao(array $chacara,bool $ativa,?int $valor,string $status,int $adminId,?array $atual,?string $customer,?string $subscription): array

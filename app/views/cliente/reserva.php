@@ -51,7 +51,7 @@ $podeAvaliar = ($reserva['status_reserva'] ?? '') === 'finalizada' && empty($res
             <?php if ($podeAvaliar): ?>
                 <a class="btn btn-outline" href="<?= url('/chacara/' . (int) $reserva['chacara_id']) ?>">Avaliar</a>
             <?php endif; ?>
-            <?php if (in_array($reserva['status_reserva'], ['aguardando_pagamento','confirmada','em_andamento'], true)): ?>
+            <?php if (($reserva['modalidade'] ?? 'integral') === 'integral' && in_array($reserva['status_reserva'], ['aguardando_pagamento','confirmada','em_andamento'], true)): ?>
                 <form method="post" action="<?= url('/cliente/reserva/'.(int)$reserva['id'].'/cancelar') ?>"><?= csrf_field() ?><label>Motivo (opcional)<textarea name="motivo" maxlength="500"></textarea></label><button class="btn btn-outline" type="submit"><?= $reserva['status_reserva']==='aguardando_pagamento'?'Cancelar reserva':'Solicitar cancelamento' ?></button></form>
             <?php endif; ?>
         </div>

@@ -30,7 +30,7 @@ final class AffiliateValidator
         $fraction = isset($matches[2]) ? (int) str_pad($matches[2], 2, '0') : 0;
         $basisPoints = ($whole * 100) + $fraction;
 
-        return $basisPoints >= 1 && $basisPoints <= 10000 ? $basisPoints : null;
+        return $basisPoints >= 0 && $basisPoints <= 10000 ? $basisPoints : null;
     }
 
     public static function pixKeyIsValid(string $type, string $key): bool

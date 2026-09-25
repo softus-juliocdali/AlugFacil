@@ -8,17 +8,18 @@ $subscription=static function(?string $id):string{$id=trim((string)$id);return $
 <div class="panel-page-heading"><div><span>Administracao</span><h1>Mensalidades</h1><p>Cobrancas de anuncio consolidadas por chacara.</p></div></div>
 
 <section class="panel-card">
-    <div class="panel-card-heading"><h2>Valor padrao para novas aprovacoes</h2></div>
-    <p>Este valor apenas preenche novas configuracoes. Alteracoes nao retroagem para mensalidades existentes.</p>
+    <div class="panel-card-heading"><h2>Mensalidade global de anúncios</h2></div>
+    <p>O valor global vale para novas obrigações de todos os imóveis não isentos. Obrigações já emitidas preservam seu valor.</p>
     <form class="owner-property-form" method="post" action="<?= url('/admin/mensalidades/configuracao') ?>">
         <?= csrf_field() ?>
-        <label>Valor padrao da mensalidade (R$)
+        <label><input type="checkbox" name="ativa" value="1" <?= !empty($configuracaoMensalidade['ativa'])?'checked':'' ?>> Mensalidade de anúncios ativa</label>
+        <label>Valor global da mensalidade (R$)
             <input type="text" inputmode="decimal" name="valor_padrao_mensal" required value="<?= e(number_format(((int)$configuracaoMensalidade['valor_padrao_centavos'])/100,2,',','')) ?>">
         </label>
         <label class="form-full">Motivo da alteracao
             <input type="text" name="motivo" maxlength="500" required>
         </label>
-        <button class="btn btn-primary" type="submit">Salvar valor padrao</button>
+        <button class="btn btn-primary" type="submit">Salvar configuração global</button>
     </form>
 </section>
 

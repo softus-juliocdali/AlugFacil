@@ -136,7 +136,7 @@ final class AdminAffiliateController extends Controller
         Auth::requireRole('admin');
         $this->view('admin/afiliados/configuracao', [
             'title' => 'Comissão dos afiliados', 'panelRole' => 'admin',
-            'config' => (new AffiliateCommissionConfig())->current(),
+            'affiliates' => (new Affiliate())->listAdministrative([]),
         ], 'panel');
     }
 
@@ -148,17 +148,17 @@ final class AdminAffiliateController extends Controller
         $basisPoints = AffiliateValidator::commissionToBasisPoints($value);
         if ($basisPoints === null) {
             set_old(['percentual' => $value]);
-            flash('error', 'Informe um percentual maior que 0 e de no máximo 100%, com até duas casas decimais.');
+            flash('error', 'Informe um percentual entre 0 e 100%, com até duas casas decimais.');
             $this->redirect('/admin/afiliados/configuracao');
         }
         try {
-            (new AffiliateCommissionConfig())->update($basisPoints, (int) Auth::user()['id']);
+            (new \App\Services\CommercialConfigurationService())->configureAffiliate((int)($_POST['afiliado_id']??0),$basisPoints,(int)Auth::user()['id'],(string)($_POST['motivo']??''));
         } catch (Throwable) {
             flash('error', 'Não foi possível atualizar o percentual de comissão.');
             $this->redirect('/admin/afiliados/configuracao');
         }
         clear_old();
-        flash('success', 'Percentual global de comissão atualizado.');
+        flash('success', 'Percentual individual atualizado. Mensalidades já emitidas foram preservadas.');
         $this->redirect('/admin/afiliados/configuracao');
     }
 
@@ -179,7 +179,7 @@ final class AdminAffiliateController extends Controller
             $cents=PrecificacaoReservaService::decimalParaCentavos(str_replace(',','.',$value));
             (new AffiliateCommissionService())->registerManualPayment($affiliateId,$cents,$date,$reference,$observation,(int)Auth::user()['id']);
             clear_old();flash('success','Pagamento ao afiliado registrado e alocado pelo critério FIFO.');
-        }catch(Throwable$exception){flash('error',$exception instanceof RuntimeException?$exception->getMessage():'Não foi possível registrar o pagamento ao afiliado.');}
+        }catch(Throwable$exception){flash('error',\App\Services\FinancialErrorMessage::publicMessage($exception,'Não foi possível registrar o pagamento ao afiliado.'));}
         $this->redirect('/admin/afiliados/'.$affiliateId.'/financeiro');
     }
 

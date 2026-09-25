@@ -56,8 +56,10 @@ final class Database
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_STATEMENT_CLASS => [TypedStatement::class],
             ]);
             self::$connection->exec('SET client_encoding TO ' . self::$connection->quote($config['DB_CHARSET']));
+            self::$connection->exec("SET TIME ZONE 'America/Sao_Paulo'");
         } catch (PDOException $exception) {
             app_log('Falha na conexao PostgreSQL: ' . $exception->getMessage());
             $message = $appConfig['app_env'] === 'development'

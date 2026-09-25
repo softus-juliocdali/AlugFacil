@@ -17,11 +17,10 @@ final class AsaasEnvironment
         }
         $baseUrl = rtrim(trim((string) (getenv('ASAAS_BASE_URL') ?: ($environment === 'sandbox' ? self::SANDBOX_URL : self::PRODUCTION_URL))), '/');
         $appEnv = strtolower(trim((string) (getenv('APP_ENV') ?: 'production')));
-        $productionHost = strtolower((string) parse_url($baseUrl, PHP_URL_HOST)) === 'api.asaas.com';
-        if ($appEnv !== 'production' && ($environment === 'production' || $productionHost)) {
-            throw new RuntimeException('Acesso Asaas Production bloqueado fora de APP_ENV=production.');
+        if ($environment !== 'sandbox') {
+            throw new RuntimeException('Asaas Production nao foi liberado nesta fase.');
         }
-        if (($environment === 'sandbox') !== (strtolower((string) parse_url($baseUrl, PHP_URL_HOST)) === 'api-sandbox.asaas.com')) {
+        if ($baseUrl !== self::SANDBOX_URL) {
             throw new RuntimeException('ASAAS_BASE_URL nao corresponde ao ambiente selecionado.');
         }
         return ['environment' => $environment, 'base_url' => $baseUrl, 'app_env' => $appEnv];
@@ -30,11 +29,11 @@ final class AsaasEnvironment
     public static function assertCredentials(bool $mutation = false): array
     {
         $config = self::config();
-        $key = trim((string) (getenv('ASAAS_API_KEY') ?: ''));
+        $key = trim((string) (getenv('ASAAS_SANDBOX_API_KEY') ?: getenv('ASAAS_API_KEY') ?: ''));
         if ($key === '') {
             throw new RuntimeException('ASAAS_API_KEY nao configurada.');
         }
-        if ($config['environment'] === 'sandbox' && !str_starts_with($key, '$aact_')) {
+        if ($config['environment'] === 'sandbox' && !str_starts_with($key, '$aact_hmlg_')) {
             throw new RuntimeException('ASAAS_API_KEY nao possui o formato esperado.');
         }
         if ($mutation && $config['environment'] === 'sandbox' && filter_var(getenv('ASAAS_ALLOW_SANDBOX_MUTATIONS') ?: 'false', FILTER_VALIDATE_BOOLEAN) !== true) {

@@ -6,12 +6,14 @@ if (!defined('GOOGLE_MAPS_API_KEY')) {
     define('GOOGLE_MAPS_API_KEY', getenv('GOOGLE_MAPS_API_KEY') ?: '');
 }
 
+$asaasConfig = \App\Services\AsaasEnvironment::config();
+
 if (!defined('ASAAS_API_KEY')) {
-    define('ASAAS_API_KEY', getenv('ASAAS_API_KEY') ?: '');
+    define('ASAAS_API_KEY', getenv('ASAAS_SANDBOX_API_KEY') ?: getenv('ASAAS_API_KEY') ?: '');
 }
 
 if (!defined('ASAAS_BASE_URL')) {
-    define('ASAAS_BASE_URL', getenv('ASAAS_BASE_URL') ?: 'https://api-sandbox.asaas.com/v3');
+    define('ASAAS_BASE_URL', $asaasConfig['base_url']);
 }
 
 if (!defined('ASAAS_WEBHOOK_TOKEN')) {
@@ -24,7 +26,7 @@ return [
         'api_key' => GOOGLE_MAPS_API_KEY,
     ],
     'asaas' => [
-        'environment' => getenv('ASAAS_ENVIRONMENT') ?: 'sandbox',
+        'environment' => $asaasConfig['environment'],
         'api_key' => ASAAS_API_KEY,
         'base_url' => rtrim(ASAAS_BASE_URL, '/'),
         'webhook_url' => getenv('ASAAS_WEBHOOK_URL') ?: '',

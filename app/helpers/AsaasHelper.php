@@ -23,22 +23,10 @@ final class AsaasHelper
 
     public function criarClienteAsaas(array $dadosUsuario): array
     {
-        $this->garantirConfigurado();
-
-        $externalReference = $this->referenciaCliente($dadosUsuario);
-        $clienteExistente = $this->localizarCliente($externalReference);
-
-        if ($clienteExistente !== null) {
-            return $clienteExistente;
-        }
-
-        return $this->client->criarCliente([
-            'name' => $dadosUsuario['nome'] ?? 'Cliente Alug Facil',
-            'email' => $dadosUsuario['email'] ?? null,
-            'phone' => $this->somenteDigitos((string) ($dadosUsuario['telefone'] ?? '')),
-            'externalReference' => $externalReference,
-            'notificationDisabled' => false,
-        ]);
+        AsaasEnvironment::assertCredentials();
+        $uid=(int)($dadosUsuario['id']??0);
+        if($uid<1)throw new RuntimeException('Identidade do pagador obrigatoria.');
+        return (new \App\Services\AsaasCustomerService($this->client))->obter($uid);
     }
 
     public function criarCobranca(array $dadosReserva): array

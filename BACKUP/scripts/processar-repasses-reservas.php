@@ -1,5 +1,0 @@
-<?php
-declare(strict_types=1);
-require __DIR__.'/bootstrap.php';
-use App\Core\Database;
-$o=getopt('',['limit::','reserva-id::','retry-errors','sandbox-live','confirm']);$limit=max(1,min(50,(int)($o['limit']??50)));$db=Database::getConnection();$p=[];$w="rp.status_local IN ('liberado_para_repasse'".(isset($o['retry-errors'])?",'falhou'":"").") AND rp.repasse_liberavel_em<=CURRENT_TIMESTAMP AND r.status_pagamento='pago' AND r.status_reserva='confirmada' AND NOT EXISTS(SELECT 1 FROM reembolsos_reservas rr WHERE rr.reserva_id=r.id AND rr.status_local NOT IN ('cancelado','falhou'))";if(isset($o['reserva-id'])){$w.=' AND r.id=:r';$p['r']=(int)$o['reserva-id'];}$s=$db->prepare("SELECT rp.id,rp.reserva_id,rp.valor_repasse_centavos,rp.status_local FROM repasses_reservas rp JOIN reservas r ON r.id=rp.reserva_id WHERE $w ORDER BY rp.repasse_liberavel_em,rp.id LIMIT $limit");$s->execute($p);echo json_encode(['mode'=>'dry-run','count'=>$s->rowCount(),'items'=>$s->fetchAll()],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE).PHP_EOL;if(isset($o['sandbox-live'])||isset($o['confirm'])){fwrite(STDERR,"Execucao externa bloqueada no Prompt 07-R; use FakeAsaasClient.\n");exit(2);}

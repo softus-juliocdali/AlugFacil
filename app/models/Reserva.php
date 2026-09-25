@@ -103,13 +103,15 @@ final class Reserva extends Model
 
     public function criar(array $dados): array
     {
-        $this->db->beginTransaction();
+        $ownTransaction = !$this->db->inTransaction();
+        if ($ownTransaction) $this->db->beginTransaction();
 
         try {
             $this->bloquearCriacaoConcorrente((int) $dados['chacara_id']);
+            (new \App\Services\ReservationAuthorization($this->db))->assertCanBook((int)$dados['usuario_id'],(int)$dados['chacara_id']);
             (new ReservaStatusService($this->db))->expirarVencidas(25, (int) $dados['chacara_id']);
 
-            if ($this->buscarChacaraParaReserva((int) $dados['chacara_id']) === null) {
+            if (($dados['schema_financeiro'] ?? 1) < 2 && $this->buscarChacaraParaReserva((int) $dados['chacara_id']) === null) {
                 throw new RuntimeException('Imovel ou proprietario sem autorizacao para reserva.');
             }
 
@@ -133,7 +135,7 @@ final class Reserva extends Model
                             valor_diaria,
                             valor_total,
                             status_reserva,
-                            status_pagamento, expira_em,
+                            status_pagamento, expira_em, cotacao_id, schema_financeiro, modalidade,
                             valor_diaria_liquido_proprietario_centavos, valor_hospedagem_centavos,
                             valor_liquido_proprietario_centavos, taxa_plataforma_centavos,
                             taxa_gateway_estimada_centavos, valor_total_cliente_centavos,
@@ -155,10 +157,10 @@ final class Reserva extends Model
                             :valor_diaria,
                             :valor_total,
                             'aguardando_pagamento',
-                            'pendente', CURRENT_TIMESTAMP + (:expiracao_minutos * INTERVAL '1 minute'),
+                            'pendente', COALESCE(CAST(:expira AS timestamptz),clock_timestamp() + INTERVAL '15 minutes'),:cotacao,:schema,:modalidade,
                             :vd_centavos,:hospedagem,:liquido,:plataforma,:gateway,:total_cliente,
                             :plataforma_bps,:plataforma_fixa,:gateway_bps,:gateway_fixa,:margem_bps,
-                            :forma,:parcelas,:versao,'pix_operacao_v1',CAST(:detalhes AS JSONB),CURRENT_TIMESTAMP
+                            :forma,:parcelas,:versao,:origem,CAST(:detalhes AS JSONB),CURRENT_TIMESTAMP
                             ,:taxa_operacao,:ci,:cf,:coi,:cof,
                             :checkin_inicio,:cancel_limit,:repasse_limit,
                             'aguardando_pagamento',:aceite_menos_24h
@@ -182,7 +184,7 @@ final class Reserva extends Model
                 'gateway_bps'=>$dados['gateway_percentual_bps'],'gateway_fixa'=>$dados['gateway_fixa_centavos'],
                 'margem_bps'=>$dados['margem_seguranca_bps'],'forma'=>$dados['forma_pagamento'],'parcelas'=>$dados['quantidade_parcelas'],
                 'versao'=>$dados['versao_precificacao'],'detalhes'=>json_encode($dados['precificacao_detalhes'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
-                'expiracao_minutos' => max(5, min(1440, (int) (getenv('RESERVA_EXPIRACAO_MINUTOS') ?: 30))),
+                'expira'=>$dados['expira_em']??null,'cotacao'=>$dados['cotacao_id']??null,'schema'=>$dados['schema_financeiro']??1,'modalidade'=>$dados['modalidade']??'integral','origem'=>$dados['origem_precificacao']??'pix_operacao_v1',
                 'taxa_operacao'=>$dados['taxa_operacao_pix_centavos'],'ci'=>$dados['checkin_hora_inicial_snapshot'],
                 'cf'=>$dados['checkin_hora_final_snapshot'],'coi'=>$dados['checkout_hora_inicial_snapshot'],'cof'=>$dados['checkout_hora_final_snapshot'],
                 'aceite_menos_24h'=>$dados['aceite_reserva_menos_24h'],
@@ -190,13 +192,13 @@ final class Reserva extends Model
             ]);
 
             $id = (int) $statement->fetchColumn();
-            $this->db->prepare("INSERT INTO repasses_reservas(reserva_id,proprietario_id,valor_reserva_centavos,valor_repasse_centavos,repasse_liberavel_em,status_local,external_reference) SELECT id,proprietario_id,valor_hospedagem_centavos,valor_hospedagem_centavos,repasse_liberavel_em,'aguardando_pagamento','repasse_reserva_'||id FROM reservas WHERE id=:id ON CONFLICT(reserva_id) DO NOTHING")->execute(['id'=>$id]);
+            $this->db->prepare("INSERT INTO repasses_reservas(reserva_id,proprietario_id,valor_reserva_centavos,valor_repasse_centavos,repasse_liberavel_em,status_local,external_reference) SELECT id,proprietario_id,valor_hospedagem_centavos,valor_liquido_proprietario_centavos,repasse_liberavel_em,'aguardando_pagamento','repasse_reserva_'||id FROM reservas WHERE id=:id ON CONFLICT(reserva_id) DO NOTHING")->execute(['id'=>$id]);
             (new ReservaStatusService($this->db))->registrarInicial($id);
-            $this->db->commit();
+            if ($ownTransaction) $this->db->commit();
 
             return ['id' => $id];
         } catch (Throwable $exception) {
-            if ($this->db->inTransaction()) {
+            if ($ownTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
 
@@ -212,11 +214,10 @@ final class Reserva extends Model
     }
 
     public function buscarCotacaoValida(string $id,int $usuarioId,int $chacaraId):array
-    {
-        $s=$this->db->prepare("SELECT q.*,c.versao AS versao_atual FROM cotacoes_reserva q JOIN configuracoes_financeiras c ON c.id=q.configuracao_financeira_id WHERE q.id=:id AND q.usuario_id=:u AND q.chacara_id=:c");$s->execute(['id'=>$id,'u'=>$usuarioId,'c'=>$chacaraId]);$q=$s->fetch();if(!$q||$q['consumida_em']!==null||strtotime($q['expira_em'])<=time())throw new RuntimeException('Cotacao expirada ou invalida.');$vigente=(int)$this->db->query("SELECT COALESCE(MAX(versao),0) FROM configuracoes_financeiras WHERE vigencia_fim IS NULL AND precificacao_ativa")->fetchColumn();if($vigente!==(int)$q['versao_configuracao'])throw new RuntimeException('Os valores foram atualizados. Solicite uma nova cotacao.');$q['detalhes']=is_string($q['detalhes'])?json_decode($q['detalhes'],true,512,JSON_THROW_ON_ERROR):$q['detalhes'];return$q;
-    }
+    {return (new \App\Services\CheckoutQuoteService($this->db))->valid($id,$usuarioId,$chacaraId);}
 
-    public function marcarCotacaoConsumida(string $id,int $usuarioId):void{$s=$this->db->prepare('UPDATE cotacoes_reserva SET consumida_em=CURRENT_TIMESTAMP WHERE id=:id AND usuario_id=:u AND consumida_em IS NULL AND expira_em>CURRENT_TIMESTAMP');$s->execute(['id'=>$id,'u'=>$usuarioId]);if($s->rowCount()!==1)throw new RuntimeException('Cotacao ja consumida ou expirada.');}
+    public function marcarCotacaoConsumida(string $id,int $usuarioId):void
+    {throw new RuntimeException('Consuma a cotacao atomicamente com CheckoutQuoteService.');}
 
     public function buscarConfirmacao(int $reservaId, int $usuarioId): ?array
     {

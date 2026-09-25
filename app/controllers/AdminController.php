@@ -321,6 +321,7 @@ final class AdminController extends Controller
             'mensalidade' => (new MensalidadeAnuncio())->buscarAdministrativa($chacaraId),
             'historicoMensalidade' => (new MensalidadeAnuncio())->historicoAdministrativo($chacaraId),
             'cobrancasMensalidade' => (new MensalidadeAnuncio())->cobrancasAdministrativas($chacaraId),
+            'comercial' => (new \App\Services\CommercialConfigurationService())->property($chacaraId),
             'valorMensalPadraoCentavos' => (new ConfiguracaoMensalidadeAnuncio())->valorPadraoCentavos(),
             'mensalidadeObrigatoriaAfiliado' => AffiliateMonthlyFeePolicy::propertyRequiresMonthlyFee($chacara),
         ], 'panel');
@@ -338,52 +339,17 @@ final class AdminController extends Controller
             $this->redirect('/admin/chacaras/' . $chacaraId);
         }
         try {
-            $mensalidadeAtiva = null;
-            if ($status === 'aprovada') {
-                $chacara = (new Chacara())->buscarAdministrativo($chacaraId);
-                if ($chacara === null) {
-                    $this->notFound();
-                }
-                $tipoMensalidade = $_POST['mensalidade'] ?? null;
-                if (!is_string($tipoMensalidade)
-                    || !in_array($tipoMensalidade, ['sem', 'com'], true)) {
-                    throw new RuntimeException('Escolha se o imovel sera aprovado com ou sem mensalidade.');
-                }
-
-                AffiliateMonthlyFeePolicy::assertModeAllowed($chacara, $tipoMensalidade);
-
-                $mensalidadeAtiva = $tipoMensalidade === 'com';
-                $valorCentavos = null;
-                if ($mensalidadeAtiva) {
-                    $valorMensalRecebido = $_POST['valor_mensal'] ?? null;
-                    if (!is_string($valorMensalRecebido)
-                        || trim($valorMensalRecebido) === '') {
-                        throw new RuntimeException('Informe o valor mensal do anuncio.');
-                    }
-                    $valorInformado = trim($valorMensalRecebido);
-                    $valorCentavos = PrecificacaoReservaService::decimalParaCentavos(
-                        str_replace(',', '.', $valorInformado)
-                    );
-                    if ($valorCentavos < 100) {
-                        throw new RuntimeException('Informe um valor mensal de pelo menos R$ 1,00.');
-                    }
-                }
-
-                // A configuracao ocorre antes da curta transacao de status. Apenas o fluxo com
-                // mensalidade ativa sincroniza com o Asaas e pode manter a aprovacao pendente.
-                (new MensalidadeAnuncioService())->configurar(
-                    $chacaraId,
-                    $mensalidadeAtiva,
-                    $valorCentavos,
-                    (int) Auth::user()['id']
-                );
-            }
+            $commercialService=new \App\Services\CommercialConfigurationService();
+            $commercial=$commercialService->property($chacaraId);$global=$commercialService->global();
+            $mensalidadeAtiva=(bool)$global['ativa']&&!($commercial['sem_mensalidade']??false);
+            if($status==='aprovada'&&(!$commercial||$commercial['comissao_bps']===null))throw new RuntimeException('Configure a comissao individual e a condicao comercial antes de aprovar.');
             $atualizado = (new Chacara())->atualizarStatusAdministrativo(
                 $chacaraId,
                 $status,
                 $motivo,
                 (int) Auth::user()['id']
             );
+            if($atualizado&&$status==='aprovada')$commercialService->monthlyObligation($chacaraId,date('Y-m-d'));
             flash($atualizado ? 'success' : 'error', $atualizado
                 ? ($status === 'aprovada'
                     ? ($mensalidadeAtiva
@@ -392,9 +358,7 @@ final class AdminController extends Controller
                     : 'Status do imovel atualizado.')
                 : 'Transicao de status invalida ou conta do proprietario bloqueada.');
         } catch (Throwable $exception) {
-            flash('error', $exception instanceof RuntimeException
-                ? $exception->getMessage()
-                : 'Nao foi possivel atualizar o status do imovel.');
+            flash('error', \App\Services\FinancialErrorMessage::publicMessage($exception,'Nao foi possivel atualizar o status do imovel.'));
         }
         $this->redirect('/admin/chacaras/' . $chacaraId);
     }

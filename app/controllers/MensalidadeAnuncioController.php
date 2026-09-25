@@ -29,16 +29,16 @@ final class MensalidadeAnuncioController extends Controller
         Auth::requireRole('admin');verify_csrf();
         try{
             $valor=PrecificacaoReservaService::decimalParaCentavos(str_replace(',','.',trim((string)($_POST['valor_padrao_mensal']??''))));
-            (new ConfiguracaoMensalidadeAnuncio())->salvar($valor,(int)Auth::user()['id'],(string)($_POST['motivo']??''));
-            flash('success','Valor padrao da mensalidade atualizado. Anuncios ja configurados nao foram alterados.');
-        }catch(Throwable $e){flash('error',$e instanceof RuntimeException?$e->getMessage():'Nao foi possivel atualizar o valor padrao.');}
+            (new \App\Services\CommercialConfigurationService())->configureGlobal(($_POST['ativa']??'')==='1',$valor,(int)Auth::user()['id'],(string)($_POST['motivo']??''));
+            flash('success','Configuracao global atualizada. Valores de obrigacoes ja emitidas foram preservados.');
+        }catch(Throwable $e){flash('error',\App\Services\FinancialErrorMessage::publicMessage($e,'Nao foi possivel atualizar o valor padrao.'));}
         $this->redirect('/admin/mensalidades');
     }
 
     public function owner():void
     {
         $p=Auth::requireProprietarioAutenticado();$m=new MensalidadeAnuncio();
-        $this->view('proprietario/mensalidades/index',['title'=>'Mensalidade do anuncio','panelRole'=>'proprietario','mensalidades'=>$m->listarPorProprietario((int)$p['id']),'historico'=>$m->historicoPorProprietario((int)$p['id']),'notificacoes'=>$m->listarNotificacoes((int)Auth::user()['id'])],'panel');
+        $this->view('proprietario/mensalidades/index',['title'=>'Mensalidade do anuncio','panelRole'=>'proprietario','limites'=>(new \App\Services\PropertyPaymentConfigurationService())->limits(),'obrigacoes'=>(new \App\Services\CommercialConfigurationService())->currentOwnerObligations((int)$p['id']),'condicoes'=>(new \App\Services\CommercialConfigurationService())->ownerConditions((int)$p['id']),'mensalidades'=>$m->listarPorProprietario((int)$p['id']),'historico'=>$m->historicoPorProprietario((int)$p['id']),'notificacoes'=>$m->listarNotificacoes((int)Auth::user()['id'])],'panel');
     }
     public function pay(string $id):void
     {

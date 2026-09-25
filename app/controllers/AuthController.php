@@ -8,6 +8,7 @@ use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\User;
 use App\Services\AffiliateAttributionService;
+use App\Services\AccountCredentials;
 use DateTimeImmutable;
 use Throwable;
 
@@ -24,7 +25,7 @@ final class AuthController extends Controller
     public function login(): void
     {
         verify_csrf();
-        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+        $email = AccountCredentials::email((string) ($_POST['email'] ?? ''));
         $password = (string) ($_POST['senha'] ?? '');
         set_old(['email' => $email]);
 
@@ -34,7 +35,7 @@ final class AuthController extends Controller
         }
 
         $user = (new User())->findByEmail($email);
-        if ($user === null || !password_verify($password, $user['senha_hash'])) {
+        if (!AccountCredentials::verify($user, $password)) {
             flash('error', 'E-mail ou senha incorretos.');
             $this->redirect('/login');
         }
@@ -46,7 +47,7 @@ final class AuthController extends Controller
         clear_old();
         Auth::login($user);
         flash('success', 'Login realizado com sucesso.');
-        $this->redirect(Auth::redirectPath());
+        $this->redirect(Auth::consumeReturnPath());
     }
 
     public function showClientRegistration(): void
@@ -208,7 +209,7 @@ final class AuthController extends Controller
         return [
             'nome' => trim((string) ($_POST['nome'] ?? '')),
             'telefone' => trim((string) ($_POST['telefone'] ?? '')),
-            'email' => strtolower(trim((string) ($_POST['email'] ?? ''))),
+            'email' => AccountCredentials::email((string) ($_POST['email'] ?? '')),
             'senha' => (string) ($_POST['senha'] ?? ''),
             'senha_confirmacao' => (string) ($_POST['senha_confirmacao'] ?? ''),
             'codigo_afiliado' => AffiliateAttributionService::normalizeCode($affiliateCode),
@@ -217,18 +218,6 @@ final class AuthController extends Controller
 
     private function validateRegistration(array $data): ?string
     {
-        if (mb_strlen($data['nome']) < 2) {
-            return 'Informe seu nome completo.';
-        }
-        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            return 'Informe um e-mail válido.';
-        }
-        if (strlen($data['senha']) < 6) {
-            return 'A senha deve ter ao menos 6 caracteres.';
-        }
-        if ($data['senha'] !== $data['senha_confirmacao']) {
-            return 'A confirmação da senha não confere.';
-        }
-        return null;
+        return AccountCredentials::registrationError($data);
     }
 }

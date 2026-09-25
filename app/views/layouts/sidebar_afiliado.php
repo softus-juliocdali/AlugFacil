@@ -1,5 +1,7 @@
 <nav class="sidebar-nav affiliate-sidebar-nav">
     <span class="sidebar-label">Área do afiliado</span>
+    <a href="<?= url('/cliente/historico') ?>">Minhas reservas como hóspede</a>
+    <a href="<?= url('/afiliado/identidade') ?>">Vínculo da conta principal</a>
     <a class="<?= is_active('/afiliado') ?>" href="<?= url('/afiliado') ?>"><span aria-hidden="true">&#8962;</span> Dashboard</a>
     <a class="<?= is_active('/afiliado/indicados') ?>" href="<?= url('/afiliado/indicados') ?>"><span aria-hidden="true">&#9783;</span> Indicados</a>
     <a class="<?= is_active('/afiliado/comissoes') ?>" href="<?= url('/afiliado/comissoes') ?>"><span aria-hidden="true">&#36;</span> Comissões</a>

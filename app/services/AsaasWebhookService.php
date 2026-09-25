@@ -10,8 +10,12 @@ use Throwable;
 final class AsaasWebhookService
 {
     private const CONFIRMACAO=['PAYMENT_CONFIRMED','PAYMENT_RECEIVED'];
-    private const INFORMATIVOS=['PAYMENT_CREATED','PAYMENT_UPDATED','PAYMENT_PENDING','PAYMENT_AWAITING_RISK_ANALYSIS','PAYMENT_APPROVED_BY_RISK_ANALYSIS','PAYMENT_REPROVED_BY_RISK_ANALYSIS','PAYMENT_OVERDUE'];
-    private const REVERSAO=['PAYMENT_DELETED','PAYMENT_REFUNDED','PAYMENT_PARTIALLY_REFUNDED','PAYMENT_REFUND_IN_PROGRESS','PAYMENT_CHARGEBACK_REQUESTED','PAYMENT_CHARGEBACK_DISPUTE','PAYMENT_AWAITING_CHARGEBACK_REVERSAL'];
+    private const INFORMATIVOS=['PAYMENT_CREATED','PAYMENT_UPDATED','PAYMENT_PENDING','PAYMENT_AWAITING_RISK_ANALYSIS','PAYMENT_APPROVED_BY_RISK_ANALYSIS','PAYMENT_REPROVED_BY_RISK_ANALYSIS','PAYMENT_CREDIT_CARD_CAPTURE_REFUSED','PAYMENT_OVERDUE'];
+    private const REVERSAO=['PAYMENT_DELETED','PAYMENT_REFUNDED','PAYMENT_PARTIALLY_REFUNDED','PAYMENT_REFUND_IN_PROGRESS','PAYMENT_REFUND_REQUESTED','PAYMENT_REFUND_DENIED','PAYMENT_CHARGEBACK_REQUESTED','PAYMENT_CHARGEBACK_DISPUTE','PAYMENT_AWAITING_CHARGEBACK_REVERSAL'];
+    private const TRANSFERENCIAS=['TRANSFER_CREATED','TRANSFER_PENDING','TRANSFER_IN_BANK_PROCESSING','TRANSFER_BLOCKED','TRANSFER_DONE','TRANSFER_FAILED','TRANSFER_CANCELLED'];
+    /** Only documented events supported by these handlers are subscribed. */
+    public static function subscriptionEvents():array
+    {return array_values(array_diff(array_merge(self::CONFIRMACAO,self::INFORMATIVOS,self::REVERSAO,self::TRANSFERENCIAS),['PAYMENT_PENDING','PAYMENT_REFUND_REQUESTED']));}
     public function __construct(private ?PDO $db=null){$this->db??=Database::getConnection();}
 
     public function processarPorId(int $id, bool $retryErrors=false, bool $dryRun=false): string
@@ -37,9 +41,12 @@ final class AsaasWebhookService
     private function aplicar(array $event,array $payload): array
     {
         $tipo=(string)$event['tipo_evento'];
+        if(in_array($tipo,self::TRANSFERENCIAS,true))return (new ReservationSettlementService($this->db))->reconcileTransfer(is_array($payload['transfer']??null)?$payload['transfer']:[]);
         if(!in_array($tipo,array_merge(self::CONFIRMACAO,self::INFORMATIVOS,self::REVERSAO),true))return ['status'=>'ignorado','erro'=>null];
         $payment=is_array($payload['payment']??null)?$payload['payment']:[];$pid=trim((string)($payment['id']??''));
         if($pid===''||$pid!==(string)$event['asaas_payment_id'])return $this->divergencia('Identificador da cobranca ausente ou divergente.');
+        $reservation=(new ReservationBillingService($this->db))->processPayment($event,$payment,$tipo);
+        if(($reservation['matched']??false)===true)return ['status'=>$reservation['status'],'erro'=>null];
         $mensalidade=(new MensalidadeAnuncioService($this->db))->processarPagamento($event,$payment,$tipo);
         if(($mensalidade['matched']??false)===true)return ['status'=>$mensalidade['status'],'erro'=>null];
         $s=$this->db->prepare('SELECT r.*,p.id AS pagamento_id,p.status_pagamento AS pagamento_registrado,p.valor AS pagamento_valor FROM reservas r LEFT JOIN pagamentos p ON p.reserva_id=r.id AND p.id_transacao_asaas=:payment WHERE r.id_cobranca_asaas=:payment LIMIT 1 FOR UPDATE OF r');$s->execute(['payment'=>$pid]);$reserva=$s->fetch();

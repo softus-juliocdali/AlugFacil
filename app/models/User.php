@@ -37,6 +37,7 @@ final class User extends Model
     {
         $statement = $this->db->prepare(
             'SELECT id, usuario_id, nome, telefone, email, cpf, status,
+                    (SELECT d.cpf_cnpj FROM proprietario_cadastro d WHERE d.proprietario_id=proprietarios.id) AS cpf_cnpj,
                     afiliado_id, afiliado_origem, afiliado_atribuido_em
              FROM proprietarios
              WHERE usuario_id = :usuario_id
@@ -113,7 +114,8 @@ final class User extends Model
                     p.nome,
                     p.telefone,
                     p.email,
-                    p.cpf,
+                    (SELECT d.cpf_cnpj FROM proprietario_cadastro d WHERE d.proprietario_id=p.id) AS cpf_cnpj,
+                    (SELECT d.situacao FROM proprietario_cadastro d WHERE d.proprietario_id=p.id) AS situacao_cadastro,
                     p.status,
                     p.motivo_status,
                     p.status_decidido_em,
@@ -463,9 +465,9 @@ final class User extends Model
     {
         $statement = $this->db->prepare(
             'SELECT EXISTS (
-                SELECT 1 FROM proprietarios
-                WHERE cpf = :cpf
-                  AND usuario_id <> :usuario_id
+                SELECT 1 FROM proprietario_cadastro d JOIN proprietarios p ON p.id=d.proprietario_id
+                WHERE d.cpf_cnpj = :cpf
+                  AND p.usuario_id <> :usuario_id
             )'
         );
         $statement->execute([
@@ -501,48 +503,7 @@ final class User extends Model
 
     public function updateOwnerData(int $userId, array $data): void
     {
-        $fields = [
-            'nome = :nome',
-            'telefone = :telefone',
-            'email = :email',
-        ];
-        $params = [
-            'id' => $userId,
-            'nome' => $data['nome'],
-            'telefone' => $data['telefone'] ?: null,
-            'email' => $data['email'],
-            'cpf' => preg_replace('/\D+/', '', (string) ($data['cpf'] ?? '')),
-        ];
-
-        if (!empty($data['senha'])) {
-            $fields[] = 'senha_hash = :senha_hash';
-            $params['senha_hash'] = password_hash($data['senha'], PASSWORD_DEFAULT);
-        }
-
-        $this->db->beginTransaction();
-        try {
-            $sql = 'UPDATE usuarios SET ' . implode(', ', $fields) . ' WHERE id = :id AND tipo_usuario = \'proprietario\'';
-            $this->db->prepare($sql)->execute($params);
-
-            $this->db->prepare(
-                'UPDATE proprietarios
-                 SET nome = :nome, telefone = :telefone, email = :email, cpf = :cpf
-                 WHERE usuario_id = :usuario_id'
-            )->execute([
-                'usuario_id' => $userId,
-                'nome' => $data['nome'],
-                'telefone' => $data['telefone'] ?: null,
-                'email' => $data['email'],
-                'cpf' => $params['cpf'],
-            ]);
-
-            $this->db->commit();
-        } catch (Throwable $exception) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            throw $exception;
-        }
+        (new CadastroProprietario())->salvarUsuario($userId, $data);
     }
 
     public function createClient(array $data): int

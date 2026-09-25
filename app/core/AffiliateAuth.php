@@ -30,6 +30,7 @@ final class AffiliateAuth
 
     public static function logout(): void
     {
+        if(isset($_SESSION['_auth_affiliate_id'])) Auth::logout();
         unset($_SESSION['affiliate']);
         session_regenerate_id(true);
     }

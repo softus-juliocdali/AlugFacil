@@ -16,7 +16,15 @@ final class Chacara extends Model
     public static function clausulaElegibilidadePublica(string $alias='c',string $aliasProprietario='p',string $aliasUsuario='u'): string
     {
         foreach([$alias,$aliasProprietario,$aliasUsuario] as $sqlAlias)if(!preg_match('/^[a-z][a-z0-9_]*$/i',$sqlAlias))throw new \InvalidArgumentException('Alias SQL invalido.');
-        return "$alias.status_aprovacao = 'aprovada' AND $alias.status_operacional = 'disponivel' AND $aliasUsuario.status = 'ativo' AND NOT EXISTS (SELECT 1 FROM mensalidades_anuncios ma_publica WHERE ma_publica.chacara_id=$alias.id AND ma_publica.ativa=TRUE AND ma_publica.status<>'EM_DIA') AND ($aliasProprietario.afiliado_id IS NULL OR EXISTS (SELECT 1 FROM mensalidades_anuncios ma_afiliado WHERE ma_afiliado.chacara_id=$alias.id AND ma_afiliado.ativa=TRUE AND ma_afiliado.status='EM_DIA'))";
+        return "$alias.status_aprovacao = 'aprovada' AND $alias.status_operacional = 'disponivel' AND $aliasUsuario.status = 'ativo' AND (
+          NOT COALESCE((SELECT ativa FROM configuracoes_mensalidades_anuncios WHERE id=1),TRUE)
+          OR EXISTS(SELECT 1 FROM configuracoes_comerciais_imoveis cc WHERE cc.chacara_id=$alias.id AND cc.sem_mensalidade)
+          OR (EXISTS(SELECT 1 FROM obrigacoes_mensalidades om WHERE om.chacara_id=$alias.id AND om.estado='paga' AND om.vencimento<=CURRENT_DATE AND (om.vencimento+INTERVAL '1 month')::date>CURRENT_DATE)
+            AND NOT EXISTS(SELECT 1 FROM obrigacoes_mensalidades om WHERE om.chacara_id=$alias.id AND om.estado IN ('pendente','estornada') AND om.vencimento<CURRENT_DATE))
+          OR (NOT EXISTS(SELECT 1 FROM obrigacoes_mensalidades om WHERE om.chacara_id=$alias.id)
+            AND EXISTS(SELECT 1 FROM mensalidades_anuncios ma WHERE ma.chacara_id=$alias.id AND ma.ativa AND ma.status='EM_DIA')
+            AND NOT EXISTS(SELECT 1 FROM cobrancas_mensalidades cm JOIN mensalidades_anuncios ma ON ma.id=cm.mensalidade_id WHERE ma.chacara_id=$alias.id AND cm.status IN ('PENDENTE','ATRASADA','ESTORNADA') AND cm.vencimento<CURRENT_DATE))
+        )";
     }
 
     public static function elegivelPublicamente(array $chacara,?array $mensalidade=null):bool
@@ -419,6 +427,10 @@ final class Chacara extends Model
                   AND r.status_reserva IN (%s)
                   AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                   AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
+                UNION
+                SELECT serie.data::date::text,'reservado'
+                FROM cotacoes_reserva q CROSS JOIN LATERAL generate_series(q.data_inicio::timestamp,(q.data_fim-1)::timestamp,interval '1 day') serie(data)
+                WHERE q.chacara_id=:reserva_chacara_id AND q.versao_snapshot>=2 AND q.consumida_em IS NULL AND q.cancelada_em IS NULL AND q.expira_em>clock_timestamp() AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
                 ORDER BY data
                 SQL
         , ReservaStatusService::listaSqlBloqueiamDatas()));
@@ -465,6 +477,10 @@ final class Chacara extends Model
                   AND r.status_reserva IN (%s)
                   AND (r.status_reserva <> 'aguardando_pagamento' OR r.expira_em IS NULL OR r.expira_em > CURRENT_TIMESTAMP)
                   AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
+                UNION ALL
+                SELECT serie.data::date::text,'reservado','Checkout em andamento',NULL::integer
+                FROM cotacoes_reserva q JOIN chacaras c ON c.id=q.chacara_id CROSS JOIN LATERAL generate_series(q.data_inicio::timestamp,(q.data_fim-1)::timestamp,interval '1 day') serie(data)
+                WHERE q.chacara_id=:reserva_chacara_id AND c.proprietario_id=:reserva_proprietario_id AND q.versao_snapshot>=2 AND q.consumida_em IS NULL AND q.cancelada_em IS NULL AND q.expira_em>clock_timestamp() AND serie.data::date BETWEEN :reserva_inicio AND :reserva_fim
                 ORDER BY data ASC, status DESC
                 SQL
         , ReservaStatusService::listaSqlBloqueiamDatas()));
@@ -756,6 +772,30 @@ final class Chacara extends Model
      */
     public function buscarDisponiveis(array $filtros = []): array
     {
+        [$sql, $parametros] = $this->consultaDisponiveis($filtros);
+        $statement = $this->db->prepare($sql);
+        $statement->execute($parametros);
+        return $statement->fetchAll();
+    }
+
+    /** API pagination shares the exact Web eligibility and agenda predicates. */
+    public function buscarDisponiveisPaginados(array $filtros, int $pagina, int $porPagina): array
+    {
+        if ($pagina < 1 || $pagina > 100000 || $porPagina < 1 || $porPagina > 50) {
+            throw new \InvalidArgumentException('Paginacao invalida.');
+        }
+        [$sql, $parametros] = $this->consultaDisponiveis($filtros);
+        $count = $this->db->prepare('SELECT COUNT(*) FROM (' . $sql . ') catalogo');
+        $count->execute($parametros);
+        $total = (int) $count->fetchColumn();
+        // Stable tie-breaker only on the API; Web ordering remains unchanged.
+        $statement = $this->db->prepare($sql . ', c.id ASC LIMIT :api_limit OFFSET :api_offset');
+        $statement->execute($parametros + ['api_limit' => $porPagina, 'api_offset' => ($pagina - 1) * $porPagina]);
+        return ['itens' => $statement->fetchAll(), 'total' => $total];
+    }
+
+    private function consultaDisponiveis(array $filtros): array
+    {
         $condicoes = [
             self::clausulaElegibilidadePublica(),
         ];
@@ -811,6 +851,7 @@ final class Chacara extends Model
                       AND r.data_fim > :reserva_data_inicio
                 )
                 SQL, ReservaStatusService::listaSqlBloqueiamDatas());
+            $condicoes[] = 'NOT EXISTS(SELECT 1 FROM cotacoes_reserva q WHERE q.chacara_id=c.id AND q.versao_snapshot>=2 AND q.consumida_em IS NULL AND q.cancelada_em IS NULL AND q.expira_em>clock_timestamp() AND q.data_inicio<:reserva_data_fim AND q.data_fim>:reserva_data_inicio)';
             $parametros['data_inicio'] = $inicio;
             $parametros['data_fim'] = $fim;
             $parametros['reserva_data_inicio'] = $inicio;
@@ -869,16 +910,8 @@ final class Chacara extends Model
             $ordenacao
         );
 
-        $statement = $this->db->prepare($sql);
-
-        foreach ($parametros as $nome => $valor) {
-            $tipo = is_float($valor) || is_int($valor) ? PDO::PARAM_STR : PDO::PARAM_STR;
-            $statement->bindValue(':' . $nome, (string) $valor, $tipo);
-        }
-
-        $statement->execute();
-
-        return $statement->fetchAll();
+        // Preserve the original string binding of all public search filters.
+        return [$sql, array_map(static fn (mixed $valor): string => (string) $valor, $parametros)];
     }
 
     public function listarAdministrativo(string $status = ''): array

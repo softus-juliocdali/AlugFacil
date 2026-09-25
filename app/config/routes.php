@@ -48,6 +48,8 @@ return static function (Router $router, array $config): void {
     $router->get('/afiliado/login', [AffiliateAuthController::class, 'showLogin']);
     $router->post('/afiliado/login', [AffiliateAuthController::class, 'login']);
     $router->post('/afiliado/logout', [AffiliateAuthController::class, 'logout']);
+    $router->get('/afiliado/identidade', [\App\Controllers\AffiliateIdentityController::class, 'show']);
+    $router->post('/afiliado/identidade', [\App\Controllers\AffiliateIdentityController::class, 'link']);
     $router->get('/afiliado', [AffiliateController::class, 'index']);
     $router->get('/afiliado/indicados', [AffiliateController::class, 'referred']);
     $router->get('/afiliado/indicados/{id}', [AffiliateController::class, 'referredDetail']);
@@ -60,6 +62,7 @@ return static function (Router $router, array $config): void {
     $router->get('/cliente/historico', [PanelController::class, 'historicoCliente']);
     $router->get('/cliente/reserva/{id}', [PanelController::class, 'reservaCliente']);
     $router->post('/cliente/reserva/{id}/cancelar', [ReservaLifecycleController::class, 'cancelarCliente']);
+    $router->post('/reserva/{id}/documento-pagador', [\App\Controllers\PayerDocumentController::class, 'save']);
     $router->get('/cliente/meus-dados', [PanelController::class, 'meusDadosCliente']);
     $router->post('/cliente/meus-dados', [PanelController::class, 'atualizarMeusDadosCliente']);
 
@@ -116,6 +119,10 @@ return static function (Router $router, array $config): void {
     $router->get('/admin/chacaras', [AdminController::class, 'chacaras']);
     $router->get('/admin/chacaras/{id}', [AdminController::class, 'chacaraDetalhes']);
     $router->post('/admin/chacaras/{id}/status', [AdminController::class, 'atualizarStatusChacara']);
+    $router->post('/admin/configuracoes-financeiras/parcelamento', [\App\Controllers\CommercialController::class, 'installmentLimits']);
+    $router->post('/proprietario/chacaras/{id}/pagamento', [\App\Controllers\CommercialController::class, 'ownerPayment']);
+    $router->post('/admin/chacaras/{id}/comercial', [\App\Controllers\CommercialController::class, 'property']);
+    $router->post('/proprietario/obrigacoes-mensais/{id}/pagar', [\App\Controllers\CommercialController::class, 'invoice']);
     $router->get('/admin/mensalidades', [MensalidadeAnuncioController::class, 'admin']);
     $router->post('/admin/mensalidades/configuracao', [MensalidadeAnuncioController::class, 'adminConfigUpdate']);
     $router->get('/admin/usuarios', [AdminController::class, 'usuarios']);

@@ -77,14 +77,14 @@ final class ChacaraController extends Controller
 
     public function reserve(string $id): void
     {
-        Auth::requireLogin();
         $chacaraId = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
         if ($chacaraId === false || (new Chacara())->buscarPerfil((int) $chacaraId) === null) {
             $this->notFound();
         }
 
-        $this->redirect('/reserva/criar/' . (int) $chacaraId);
+        $dates=[]; foreach(['data_inicio','data_fim'] as $key) if(isset($_GET[$key]) && is_string($_GET[$key]) && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D',$_GET[$key])) $dates[$key]=$_GET[$key];
+        $this->redirect('/reserva/criar/' . (int) $chacaraId . ($dates?'?'.http_build_query($dates):''));
     }
 
     public function review(string $id): void

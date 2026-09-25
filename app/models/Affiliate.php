@@ -29,7 +29,7 @@ final class Affiliate extends Model
         }
         $clause = $where === [] ? '' : 'WHERE ' . implode(' AND ', $where);
         $statement = $this->db->prepare(
-            "SELECT id, codigo, nome, cpf_cnpj, telefone, email, status, criado_em
+            "SELECT id, codigo, nome, cpf_cnpj, telefone, email, status, criado_em, percentual_comissao_bps
              FROM afiliados a {$clause} ORDER BY criado_em DESC, id DESC"
         );
         $statement->execute($params);
@@ -40,7 +40,7 @@ final class Affiliate extends Model
     {
         $statement = $this->db->prepare(
             'SELECT id, codigo, nome, cpf_cnpj, telefone, email, chave_pix, tipo_chave_pix,
-                    banco, observacoes, status, criado_em, atualizado_em
+                    banco, observacoes, status, criado_em, atualizado_em, percentual_comissao_bps
              FROM afiliados WHERE id = :id LIMIT 1'
         );
         $statement->execute(['id' => $id]);

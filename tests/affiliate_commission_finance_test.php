@@ -30,7 +30,7 @@ try{
     $monthlyInsert->execute(['chacara'=>$propertyA,'owner'=>$ownerId,'valor'=>10000,'subscription'=>'sub_af4_a_'.$tag]);$monthlyA=(int)$monthlyInsert->fetchColumn();
     $monthlyInsert->execute(['chacara'=>$propertyB,'owner'=>$ownerId,'valor'=>20000,'subscription'=>'sub_af4_b_'.$tag]);$monthlyB=(int)$monthlyInsert->fetchColumn();
     $monthlyInsert->execute(['chacara'=>$propertyCommon,'owner'=>$commonOwnerId,'valor'=>10000,'subscription'=>'sub_af4_c_'.$tag]);$monthlyCommon=(int)$monthlyInsert->fetchColumn();
-    $db->exec('UPDATE configuracoes_comissao_afiliados SET percentual_bps=1000 WHERE id=1');
+    $db->prepare('UPDATE afiliados SET percentual_comissao_bps=1000 WHERE id=:id')->execute(['id'=>$affiliateId]);
     $monthlyService=new MensalidadeAnuncioService($db);$finance=new AffiliateCommissionService($db);
     $event=static fn(string$id,string$payment):array=>['asaas_event_id'=>$id,'asaas_payment_id'=>$payment];
     $payment=static fn(string$id,string$subscription,int$value,string$status='RECEIVED',string$confirmed='2026-08-10T14:00:00-03:00'):array=>['id'=>$id,'subscription'=>$subscription,'value'=>number_format($value/100,2,'.',''),'status'=>$status,'confirmedDate'=>$confirmed,'externalReference'=>str_replace('sub_af4_','mensalidade_chacara_',$subscription)];
@@ -73,7 +73,7 @@ try{
     $check('14 confirmacao duplicada fora de ordem nao reativa comissao estornada',$db->query("SELECT status FROM comissoes_afiliados WHERE asaas_payment_id='".$payOpen['id']."'")->fetchColumn()==='ESTORNADA');
     $negative=$finance->summary($affiliateId,new DateTimeImmutable('2026-08-18T14:00:00-03:00'));
     $check('15 estorno pago gera saldo negativo compensavel',$negative['saldo_disponivel_centavos']===-500&&$negative['ajustes_centavos']===-1000);
-    $db->exec('UPDATE configuracoes_comissao_afiliados SET percentual_bps=1500 WHERE id=1');
+    $db->prepare('UPDATE afiliados SET percentual_comissao_bps=1500 WHERE id=:id')->execute(['id'=>$affiliateId]);
     $payNext=$payment('pay_af4_a_next_'.$tag,'sub_af4_a_'.$tag,10000,'RECEIVED','2026-09-10T14:00:00-03:00');
     $monthlyService->processarPagamento($event('evt_af4_a_next_'.$tag,$payNext['id']),$payNext,'PAYMENT_RECEIVED');
     $snapshots=$db->query("SELECT asaas_payment_id,percentual_bps,valor_comissao_centavos FROM comissoes_afiliados WHERE asaas_payment_id IN ('".$payA['id']."','".$payNext['id']."') ORDER BY id")->fetchAll();

@@ -1,0 +1,163 @@
+[
+  {
+    "order": 1,
+    "path": "database/20260910_phase1_canonical_schema.sql",
+    "version": "20260910-phase1",
+    "dependency": "baseline auditado + backfill PHP",
+    "sha256": "e8734c62d46d2a517d46b43f9657e7bbd4509a4941160b972b0e029990720992"
+  },
+  {
+    "order": 2,
+    "path": "database/20260910_phase1_pricing_origin.sql",
+    "version": "20260910-phase1-pricing-origin",
+    "dependency": "20260910-phase1",
+    "sha256": "7130eb5b4c34ba573e43ac99acbad2d4cbae3fd3be47ac1dc332afcbe7a5148b"
+  },
+  {
+    "order": 3,
+    "path": "database/20260910_phase2_identity.sql",
+    "version": "20260910_phase2_identity",
+    "dependency": "20260910-phase1-pricing-origin",
+    "sha256": "0428f09a012d7f109b15f974a71034a5718af2ef88c3d008f2d2b322335ceadd"
+  },
+  {
+    "order": 4,
+    "path": "database/20260910_phase3_operations.sql",
+    "version": "20260910_phase3_operations",
+    "dependency": "20260910_phase2_identity",
+    "sha256": "4e5e88633375b864dca8be9f83e0ca3f84303b5ec1601ab97c4509280f2e9e5e"
+  },
+  {
+    "order": 5,
+    "path": "database/20260910_phase3_vault.sql",
+    "version": "20260910_phase3_vault",
+    "dependency": "20260910_phase3_operations",
+    "sha256": "aef5bdbd13b6ae0b4993fff7ad7aea231396a692e112f9e911655f306e2314e6"
+  },
+  {
+    "order": 6,
+    "path": "database/20260910_phase4_commercial.sql",
+    "version": "20260910_phase4_commercial",
+    "dependency": "20260910_phase3_vault",
+    "sha256": "76877dea5f9e00df73ad5cff178914b29cb832abd8df1d09dd3194b4a207f776"
+  },
+  {
+    "order": 7,
+    "path": "database/20260910_phase4_affiliate_snapshots.sql",
+    "version": "20260910_phase4_affiliate_snapshots",
+    "dependency": "20260910_phase4_commercial",
+    "sha256": "f1b4bedb6be5ede03fc7c2d39dcbc4ac0db72dc9386682de0f89da49660c9376"
+  },
+  {
+    "order": 8,
+    "path": "database/20260910_phase4_snapshot_completion.sql",
+    "version": "20260910_phase4_snapshot_completion",
+    "dependency": "20260910_phase4_affiliate_snapshots",
+    "sha256": "56782e4af1f8cd7399c1415917382356263d8c4008d57ab10662f57646ebae98"
+  },
+  {
+    "order": 9,
+    "path": "database/20260910_phase5_property_payments.sql",
+    "version": "20260910_phase5_property_payments",
+    "dependency": "20260910_phase4_snapshot_completion",
+    "sha256": "aa2acad3a2da83f2b4ac804ba365c750c91f9a1930cae2a982368d1b6696df38"
+  },
+  {
+    "order": 10,
+    "path": "database/20260910_phase6_frozen_quotes.sql",
+    "version": "20260910_phase6_frozen_quotes",
+    "dependency": "20260910_phase5_property_payments",
+    "sha256": "69bfdb10c11055c7e1a92ec3b07a2f3090b512dd7307e2b2d03dce2e243b8ef4"
+  },
+  {
+    "order": 11,
+    "path": "database/20260910_phase6_payout_snapshot.sql",
+    "version": "20260910_phase6_payout_snapshot",
+    "dependency": "20260910_phase6_frozen_quotes",
+    "sha256": "a54b915ec1240d6b3cd0183ec3515d14895d2f67182c2939bc1e67d78e738ff3"
+  },
+  {
+    "order": 12,
+    "path": "database/20260910_phase6_checkout_clock.sql",
+    "version": "20260910_phase6_checkout_clock",
+    "dependency": "20260910_phase6_payout_snapshot",
+    "sha256": "919904b26951f33a6047535d2a20f35fd5975051ea25f4ca81909c91c164266a"
+  },
+  {
+    "order": 13,
+    "path": "database/20260910_phase7_agenda.sql",
+    "version": "20260910_phase7_agenda",
+    "dependency": "20260910_phase6_checkout_clock",
+    "sha256": "7fa7ec2217d215c4428856f9326bb8720e0b75528da3cf82fbaa3587943b15f3"
+  },
+  {
+    "order": 14,
+    "path": "database/20260910_phase7_settlement.sql",
+    "version": "20260910_phase7_settlement",
+    "dependency": "20260910_phase7_agenda",
+    "sha256": "d45ece58f8463aecfe596c700aed00f0dd589ce9e62e9370dc44ad4ca5ddbdb3"
+  },
+  {
+    "order": 15,
+    "path": "database/20260910_phase7_refund_ledger.sql",
+    "version": "20260910_phase7_refund_ledger",
+    "dependency": "20260910_phase7_settlement",
+    "sha256": "7432a58be6e9665c63b56583eaba9c99005ae7ea0873ca4064537478ed9fe0b6"
+  },
+  {
+    "order": 16,
+    "path": "database/20260910_phase8_installment_schedule.sql",
+    "version": "20260910_phase8_installment_schedule",
+    "dependency": "20260910_phase7_refund_ledger",
+    "sha256": "e0304d85332705840a859a27a0a5d9451f56eb0f59f4a74ed3d9cb09898d9cf1"
+  },
+  {
+    "order": 17,
+    "path": "database/20260910_phase8_integrity.sql",
+    "version": "20260910_phase8_integrity",
+    "dependency": "20260910_phase8_installment_schedule",
+    "sha256": "3cb2727da55a9606db152905bd7e3beb2dacfb043acb485d86103de5846b3d02"
+  },
+  {
+    "order": 18,
+    "path": "database/20260910_phase8_payout_projection.sql",
+    "version": "20260910_phase8_payout_projection",
+    "dependency": "20260910_phase8_integrity",
+    "sha256": "eae8361d6b0574d465325773f34148b72835a45182bb8c4a29da54ab7edbcac1"
+  },
+  {
+    "order": 19,
+    "path": "database/20260910_phase8_payment_identity.sql",
+    "version": "20260910_phase8_payment_identity",
+    "dependency": "20260910_phase8_payout_projection",
+    "sha256": "c8c63038f25af78ab98f6a04c0bcf8c6d06331df97899379ed1648e2bbc2f303"
+  },
+  {
+    "order": 20,
+    "path": "database/20260910_phase9_delinquency.sql",
+    "version": "20260910_phase9_delinquency",
+    "dependency": "20260910_phase8_payment_identity",
+    "sha256": "6aee05d39f12dfc1a8c9d0ba86e5732b09252bab10f9267e2c63cb385cfbd452"
+  },
+  {
+    "order": 21,
+    "path": "database/20260916_phase9_entry_deadline.sql",
+    "version": "20260916_phase9_entry_deadline",
+    "dependency": "20260910_phase9_delinquency",
+    "sha256": "fe397e0e317c2de933f3e96be109332df5bdcd952607af9a0cc8bdec1a35be5f"
+  },
+  {
+    "order": 22,
+    "path": "database/20260916_monthly_refund_hold.sql",
+    "version": "20260916_monthly_refund_hold",
+    "dependency": "20260916_phase9_entry_deadline",
+    "sha256": "cbf4f2ca5b21468127019594dbe113c4836b38cd8361f8e83205e11eafeb9ebb"
+  },
+  {
+    "order": 23,
+    "path": "database/20260917_financial_close.sql",
+    "version": "20260917_financial_close",
+    "dependency": "20260916_monthly_refund_hold",
+    "sha256": "d86d91a723e64d4fff44ccf73c7eab071ad58914e87317acd307f869003ef1a6"
+  }
+]

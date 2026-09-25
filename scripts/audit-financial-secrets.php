@@ -1,0 +1,17 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/bootstrap.php';
+if(getenv('DB_NAME')!=='alugfacil_dev'||!in_array(getenv('DB_HOST'),['localhost','127.0.0.1','::1'],true))throw new RuntimeException('Somente auditoria local.');
+$db=App\Core\Database::getConnection();$secrets=array_filter([getenv('ASAAS_SANDBOX_API_KEY'),getenv('ASAAS_API_KEY'),getenv('ASAAS_WEBHOOK_TOKEN'),getenv('ASAAS_SUBACCOUNT_ENCRYPTION_KEY')]);
+$tokens=0;$vault=new App\Services\ReservationCardVault($db);
+foreach($db->query("SELECT a.reserva_id,a.conta_gateway,a.asaas_customer_id FROM autorizacoes_pagamento_reserva a JOIN reservas r ON r.id=a.reserva_id WHERE a.estado='ativa' AND r.status_reserva='confirmada'")->fetchAll() as $a){$secret=$vault->credentials((int)$a['reserva_id'],$a['conta_gateway'],$a['asaas_customer_id']);$secrets[]=$secret['creditCardToken'];$tokens++;unset($secret);}
+$matches=static function(string $text)use($secrets):bool{foreach($secrets as $secret)if($secret!==''&&str_contains($text,$secret))return true;return false;};
+$report=['tokens_cifrados_verificados'=>$tokens,'registros_examinados'=>0,'registros_com_segredos'=>0,'arquivos_examinados'=>0,'arquivos_com_segredos'=>0,'payloads_com_campos_sensiveis'=>0];
+foreach(['SELECT payload::text AS data,resultado::text AS result FROM operacoes_financeiras','SELECT payload::text AS data,NULL AS result FROM asaas_webhook_eventos'] as $sql)foreach($db->query($sql)->fetchAll() as $row){$report['registros_examinados']++;$text=$row['data'].' '.($row['result']??'');if($matches($text))$report['registros_com_segredos']++;if(preg_match('/"(?:creditCardToken|creditCard|creditCardHolderInfo|cvv|ccv|apiKey|access_token)"\s*:/i',$text))$report['payloads_com_campos_sensiveis']++;}
+foreach(['app','scripts','tests','docs','public','storage/logs'] as $dir){$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(APP_ROOT.'/'.$dir,FilesystemIterator::SKIP_DOTS));foreach($it as $f){if(!$f->isFile()||!in_array(strtolower($f->getExtension()),['php','js','json','md','html','log','css'],true))continue;$report['arquivos_examinados']++;if($matches(file_get_contents($f->getPathname())))$report['arquivos_com_segredos']++;}}
+$git=static function(array $args):string{$p=proc_open(array_merge(['git'],$args),[1=>['pipe','w'],2=>['file','NUL','w']],$pipes,APP_ROOT);if(!is_resource($p))throw new RuntimeException('Git indisponivel.');$out=stream_get_contents($pipes[1]);fclose($pipes[1]);if(proc_close($p)!==0)throw new RuntimeException('Auditoria Git falhou.');return $out;};
+$report['git_diff_com_segredos']=$matches($git(['diff','--no-ext-diff','--no-textconv','HEAD']))?1:0;
+$report['git_arquivos_examinados']=0;$report['git_arquivos_com_segredos']=0;
+foreach(explode("\0",$git(['ls-files','-m','-o','--exclude-standard','-z'])) as $file){if($file===''||!is_file(APP_ROOT.'/'.$file))continue;$report['git_arquivos_examinados']++;if($matches(file_get_contents(APP_ROOT.'/'.$file)))$report['git_arquivos_com_segredos']++;}
+if(file_put_contents(APP_ROOT.'/storage/financial-migration/secret-audit-'.date('Ymd-His').'.json',json_encode($report,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR))===false)throw new RuntimeException('Falha ao salvar auditoria.');echo json_encode($report,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR).PHP_EOL;
+exit(($report['registros_com_segredos']+$report['arquivos_com_segredos']+$report['payloads_com_campos_sensiveis']+$report['git_diff_com_segredos']+$report['git_arquivos_com_segredos'])>0?1:0);

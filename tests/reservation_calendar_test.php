@@ -175,9 +175,9 @@ try {
         'key >= startKey && key < endKey'
     ) && str_contains($javascript, 'firstUnavailableAfter')
         && str_contains($javascript, 'is-checkout-boundary');
-    $checks['janela_de_doze_meses_e_datas_minimas_vem_do_backend'] = str_contains(
+    $checks['janela_de_trinta_e_seis_meses_e_datas_minimas_vem_do_backend'] = str_contains(
         $controller,
-        "modify('+12 months')"
+        "modify('+36 months')"
     ) && str_contains($view, 'data-min-date') && str_contains($view, 'data-max-date');
     $checks['cotacao_preserva_id_e_protege_datas'] = str_contains($view, 'name="cotacao_id"')
         && str_contains($view, 'data-locked')

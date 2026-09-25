@@ -1,6 +1,0 @@
-<?php
-declare(strict_types=1);require dirname(__DIR__).'/scripts/bootstrap.php';use App\Core\Database;
-$root=dirname(__DIR__);$files=array_merge(glob($root.'/app/controllers/*.php')?:[],glob($root.'/app/views/*/financeiro/*.php')?:[],glob($root.'/app/services/*.php')?:[]);$fail=0;
-$checks=[];$db=Database::getConnection();$checks['banco_alugfacil_dev']=$db->query("SELECT current_database()='alugfacil_dev'")->fetchColumn();$checks['schema_sem_api_key']=$db->query("SELECT NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND column_name ILIKE '%api%key%')")->fetchColumn();
-$controller=file_get_contents($root.'/app/controllers/FinancialOnboardingController.php');$views=implode('',array_map('file_get_contents',glob($root.'/app/views/*/financeiro/*.php')?:[]));$checks['controller_nao_aceita_api_key']=!preg_match('/_POST[^\n]{0,120}apiKey/i',(string)$controller);$checks['view_nao_tem_campo_api_key']=!preg_match('/name=["\']apiKey/i',$views);$checks['nenhuma_operacao_recupera_api_key']=!preg_match('/(get|fetch|select|recuper)[A-Za-z_ ]{0,20}apiKey/i',implode('',array_map('file_get_contents',$files)));
-foreach($checks as$n=>$ok){echo($ok?'[OK] ':'[FALHA] ').$n.PHP_EOL;$fail+=!$ok;}exit($fail?1:0);

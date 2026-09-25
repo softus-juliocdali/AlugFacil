@@ -100,6 +100,8 @@ try {
     $statement->execute(['email' => $adminEmail]);
     $adminId = (int) $statement->fetchColumn();
 
+    // Isolate access/approval from the global monthly-fee policy introduced in phase 4.
+    $db->prepare('INSERT INTO configuracoes_comerciais_imoveis(chacara_id,sem_mensalidade,comissao_bps) VALUES(:c,TRUE,1000) ON CONFLICT(chacara_id) DO UPDATE SET sem_mensalidade=TRUE,comissao_bps=1000')->execute(['c'=>$chacaraId]);
     $checks['admin_aprova_chacara_de_dono_pendente'] =
         $chacaraModel->atualizarStatusAdministrativo($chacaraId, 'aprovada', 'Teste automatizado', $adminId);
     $checks['chacara_aprovada_publica'] = $chacaraModel->buscarPerfil($chacaraId) !== null;
@@ -112,6 +114,7 @@ try {
 } finally {
     unset($_SESSION['user']);
     if ($chacaraId > 0) {
+        $db->prepare('DELETE FROM configuracoes_comerciais_imoveis WHERE chacara_id=:c')->execute(['c'=>$chacaraId]);
         $db->prepare('DELETE FROM historico_status_chacaras WHERE chacara_id = :id')
             ->execute(['id' => $chacaraId]);
         $db->prepare('DELETE FROM chacaras WHERE id = :id')->execute(['id' => $chacaraId]);

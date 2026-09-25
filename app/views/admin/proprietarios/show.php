@@ -4,6 +4,9 @@ $formatarData = static fn (?string $data): string => $data ? date('d/m/Y', strto
 $formatarMoeda = static fn (float $valor): string => 'R$ ' . number_format($valor, 2, ',', '.');
 $formatarCpf = static function (?string $cpf): string {
     $digitos = preg_replace('/\D+/', '', (string) $cpf);
+    if (strlen($digitos) === 14) {
+        return substr($digitos,0,2).'.'.substr($digitos,2,3).'.'.substr($digitos,5,3).'/'.substr($digitos,8,4).'-'.substr($digitos,12,2);
+    }
     if (strlen($digitos) !== 11) {
         return '-';
     }
@@ -34,7 +37,8 @@ $transicoes = [
             <div><dt>Nome</dt><dd><?= e($proprietario['nome']) ?></dd></div>
             <div><dt>Telefone</dt><dd><?= e($proprietario['telefone'] ?: '-') ?></dd></div>
             <div><dt>E-mail</dt><dd><?= e($proprietario['email']) ?></dd></div>
-            <div><dt>CPF</dt><dd><?= e($formatarCpf($proprietario['cpf'] ?? null)) ?></dd></div>
+            <div><dt>CPF/CNPJ</dt><dd><?= e($formatarCpf($proprietario['cpf_cnpj'] ?? null)) ?></dd></div>
+            <div><dt>Situação cadastral</dt><dd><?= e($proprietario['situacao_cadastro'] ?? 'incompleto') ?></dd></div>
             <div><dt>Status</dt><dd><span class="status-pill"><?= e($formatarStatus($proprietario['status'])) ?></span></dd></div>
             <div><dt>Status de login</dt><dd><span class="status-pill"><?= e($formatarStatus($proprietario['usuario_status'])) ?></span></dd></div>
             <div><dt>Cadastro</dt><dd><?= e($formatarData($proprietario['data_cadastro'])) ?></dd></div>
