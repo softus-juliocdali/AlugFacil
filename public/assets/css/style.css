@@ -351,20 +351,31 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 .reservation-property-card h2 { margin: 8px 0 7px; color: var(--green-950); font-size: 28px; letter-spacing: -.03em; }
 .reservation-property-card p { margin: 0 0 16px; color: var(--muted); }
 .reservation-form { display: grid; gap: 22px; padding: 30px; }
-.reservation-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.reservation-form > p { margin: 0; line-height: 1.55; }
+.reservation-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .reservation-form label { color: #344039; font-size: 12px; font-weight: 800; }
+.reservation-form > label:has(select), .reservation-form-grid > label { display: grid; gap: 8px; min-width: 0; }
+.reservation-form select,
 .reservation-form input[type="date"] {
     width: 100%;
+    min-width: 0;
     height: 48px;
-    margin-top: 8px;
+    margin: 0;
     padding: 0 13px;
     color: var(--ink);
     background: #fcfdfb;
     border: 1px solid #d8dfd8;
     border-radius: 8px;
     outline-color: var(--green-700);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
 }
+.reservation-form select { appearance: none; padding-right: 36px; background-color: var(--field-bg); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23344039' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; }
+.reservation-form select:focus-visible, .reservation-form input[type="date"]:focus-visible { border-color: var(--green-700); box-shadow: var(--focus-ring); }
+.reservation-calendar { display: grid; gap: 22px; min-width: 0; }
 .reservation-range-field { display: grid; gap: 8px; }
+.reservation-form .reservation-calendar-help { margin-top: 8px; }
 .reservation-range-control { position: relative; }
 .reservation-range-control input[type="text"] {
     width: 100%;

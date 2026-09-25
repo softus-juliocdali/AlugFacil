@@ -62,6 +62,8 @@
 .admin-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .admin-metric-grid article { min-height: 150px; }
 .panel-card { padding: 23px; background: #fff; border: 1px solid #e1e6e0; border-radius: 11px; box-shadow: var(--shadow-sm); }
+/* Only consecutive page cards; nested cards and form grids keep their own gaps. */
+.admin-card-spacing > .panel-card + .panel-card { margin-top: 24px; }
 .panel-card-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .panel-card-heading h2 { margin: 0; font-size: 17px; }
 .panel-card-heading a { color: var(--green-700); font-size: 11px; font-weight: 700; }

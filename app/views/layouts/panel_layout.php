@@ -28,7 +28,7 @@
         <?php require APP_ROOT . '/app/views/layouts/sidebar_' . $panelRole . '.php'; ?>
     </aside>
     <div class="sidebar-overlay" data-sidebar-overlay></div>
-    <main class="panel-main">
+    <main class="panel-main<?= $panelRole === 'admin' && in_array($view, ['admin/configuracoes_financeiras/index', 'admin/financeiro/show', 'admin/asaas_eventos/index', 'admin/asaas_eventos/show'], true) ? ' admin-card-spacing' : '' ?>">
         <?php require $contentView; ?>
     </main>
     <script src="<?= asset('js/panel.js') ?>"></script>
