@@ -1,4 +1,4 @@
-# Proprietário no mesmo app (0.3.1)
+# Proprietário no mesmo app (0.3.2)
 
 O catálogo continua nativo. A navegação do proprietário é nativa e abre os fluxos
 web responsivos dentro de uma WebView privada no iOS/Android. Não há cópia das

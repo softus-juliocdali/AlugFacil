@@ -1,4 +1,4 @@
-import { Redirect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -22,10 +22,13 @@ export function GuestScreen({ kind }: { kind: keyof typeof content }) {
   const [error, setError] = useState('');
   const next = kind === 'favorites' ? '/favoritos' : kind === 'reservations' ? '/reservas' : '/perfil';
   async function logout() { setBusy(true); setError(''); try { await manager.logout(); } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível sair.'); } finally { setBusy(false); } }
-  if (kind === 'reservations' && user) return <Redirect href={{ pathname: '/portal', params: { path: '/cliente/historico' } }} />;
+  if (kind === 'reservations' && user) return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 24, paddingTop: insets.top + 28, gap: 24 }}>
+    <Copy title>Minhas reservas</Copy><Copy>Acompanhe suas reservas como hóspede, pagamentos e detalhes de cada estadia.</Copy>
+    <Button label="Ver minhas reservas" onPress={() => router.push({ pathname: '/portal', params: { path: '/cliente/historico' } })} />
+  </ScrollView>;
   if (kind !== 'profile' && !user) {
     if (restoring) return <View style={{ padding: 24, paddingTop: insets.top + 28 }}><Copy>Verificando sua sessão…</Copy></View>;
-    return <Redirect href={{ pathname: '/acesso', params: { next } }} />;
+    // Keep inactive tabs passive; navigation starts only from the user's button.
   }
   if (user) return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 24, paddingTop: insets.top + 28, gap: 24 }}>
     <Copy title>{c.heading}</Copy>
