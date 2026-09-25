@@ -1039,3 +1039,25 @@
 .panel-role-cliente .client-detail-actions label { display: grid; gap: 8px; font-weight: 600; }
 .panel-role-cliente .client-detail-actions textarea { width: 100%; min-height: 92px; padding: 12px; resize: vertical; box-sizing: border-box; border: 1px solid #dce5dc; border-radius: 8px; font: inherit; }
 .panel-role-cliente .client-detail-actions .btn { min-height: 44px; box-sizing: border-box; }
+/* Scoped to owner payment preferences and financial pages. */
+.owner-financial-page { display: grid; gap: 24px; min-width: 0; }
+.owner-financial-page > .panel-page-heading { margin-bottom: 0; }
+.owner-financial-page .panel-card { min-width: 0; }
+.owner-financial-page .panel-card > p { line-height: 1.6; }
+.owner-payment-card { margin-top: 24px; }
+.owner-financial-page .owner-payment-card { padding-top: 20px; border-top: 1px solid var(--border, #e5ebe3); }
+.owner-financial-page .owner-payment-card:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.owner-payment-fields { display: grid; gap: 16px; min-width: 0; }
+.owner-payment-fields p { margin: 0; line-height: 1.6; }
+.owner-payment-fields .owner-payment-toggle, .owner-receipts-page .owner-payment-toggle { display: flex; align-items: center; gap: 10px; line-height: 1.5; }
+.owner-property-form .owner-payment-fields input[type="checkbox"], .owner-receipts-page input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; }
+.owner-property-form .owner-payment-percent { display: grid; max-width: 280px; width: 100%; }
+.owner-obligation + .owner-obligation, .owner-commercial-condition + .owner-commercial-condition { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border, #e5ebe3); }
+.owner-commercial-condition h3 { margin-bottom: 16px; }
+.owner-obligation-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.owner-obligation-form label { display: grid; gap: 8px; min-width: 0; }
+.owner-obligation-form select { max-width: 100%; padding: 12px; }
+.owner-financial-page .btn { white-space: normal; text-align: center; }
+.owner-receipts-page :is(.panel-card, .client-summary-list, .client-summary-list div, dt, dd, li, p) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.owner-receipts-page .client-summary-list { margin: 20px 0; }
+.owner-receipts-page ul { padding-left: 20px; line-height: 1.7; }

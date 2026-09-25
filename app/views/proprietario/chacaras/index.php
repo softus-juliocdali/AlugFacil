@@ -11,7 +11,7 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
     <div>
         <span>Gestao de chacaras</span>
         <h1>Minhas ch&aacute;caras</h1>
-        <p>Cadastre, edite, desative e organize as fotos dos seus im&oacute;veis.</p>
+        <p>Cadastre, edite e organize as fotos dos seus im&oacute;veis.</p>
     </div>
     <a class="btn btn-primary" href="<?= url('/proprietario/chacaras/criar') ?>">Cadastrar ch&aacute;cara</a>
 </div>
@@ -21,6 +21,8 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
         <h2>Ch&aacute;caras cadastradas</h2>
     </div>
 
+    <p>Disponível permite novas reservas, conforme a aprovação e as condições do anúncio. Indisponível pausa novas reservas, sem cancelar as existentes.</p>
+    <p>Para bloquear apenas datas específicas, use <a href="<?= url('/proprietario/disponibilidade') ?>">Disponibilidade no calendário</a>.</p>
     <?php if (empty($chacaras)): ?>
         <div class="empty-preview">
             <span>&#9636;</span>
@@ -62,7 +64,7 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
                                 <span class="status-pill"><?= e($formatarStatusAprovacao($chacara['status_aprovacao'])) ?></span>
                                 <form class="inline-status-form" method="post" action="<?= url('/proprietario/chacaras/status/' . (int) $chacara['id']) ?>">
                                     <?= csrf_field() ?>
-                                    <select name="status" onchange="this.form.submit()" aria-label="Alterar status">
+                                    <select name="status" onchange="this.form.submit()" aria-label="Disponibilidade para novas reservas">
                                         <?php foreach ($statuses as $status): ?>
                                             <option value="<?= e($status) ?>" <?= $chacara['status_operacional'] === $status ? 'selected' : '' ?>><?= e($formatarStatus($status)) ?></option>
                                         <?php endforeach; ?>
@@ -78,7 +80,6 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
                                 <div class="table-actions">
                                     <a class="btn btn-outline btn-small" href="<?= url('/proprietario/chacaras/editar/' . (int) $chacara['id']) ?>">Editar</a>
                                     <a class="btn btn-outline btn-small" href="<?= url('/proprietario/chacaras/fotos/' . (int) $chacara['id']) ?>">Fotos</a>
-                                    <a class="btn btn-danger btn-small" href="<?= url('/proprietario/chacaras/excluir/' . (int) $chacara['id']) ?>">Desativar</a>
                                 </div>
                             </td>
                         </tr>

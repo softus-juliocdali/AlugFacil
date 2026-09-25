@@ -109,6 +109,10 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
             <input type="text" value="<?= e($formatarStatusAprovacao((string) ($chacara['status_aprovacao'] ?? 'pendente'))) ?>" disabled>
         </label>
 
+        <?php if (!$isEdit): ?>
+            <div class="form-full"><h2>Pagamento das reservas</h2></div>
+            <?php require __DIR__ . '/payment_fields.php'; ?>
+        <?php endif; ?>
         <div class="form-actions">
             <button class="btn btn-primary" type="submit">Salvar ch&aacute;cara</button>
             <?php if ($isEdit): ?>
@@ -118,4 +122,14 @@ $formatarStatusAprovacao = static fn (string $status): string => match ($status)
     </form>
 </section>
 
+<?php if ($isEdit): ?>
+<section class="panel-card owner-payment-card">
+    <div class="panel-card-heading"><h2>Pagamento das reservas</h2></div>
+    <form class="owner-property-form" method="post" action="<?= url('/proprietario/chacaras/' . (int) $chacara['id'] . '/pagamento') ?>">
+        <?= csrf_field() ?>
+        <?php require __DIR__ . '/payment_fields.php'; ?>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Salvar preferência de pagamento</button></div>
+    </form>
+</section>
+<?php endif; ?>
 <script src="<?= asset('js/maps.js') ?>" data-google-maps-key="<?= e($googleMapsApiKey) ?>"></script>

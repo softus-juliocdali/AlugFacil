@@ -26,13 +26,16 @@ final class PropertyPaymentConfigurationService
  }
  public function saveOwner(int $id,int $user,bool $enabled,?int $bps,int $version):void
  {
-  $this->db->beginTransaction();try{
+  // Property creation owns the outer transaction so both writes are atomic.
+  $ownsTransaction = !$this->db->inTransaction();
+  if ($ownsTransaction) $this->db->beginTransaction();
+  try{
    $limits=$this->db->query('SELECT * FROM configuracoes_parcelamento WHERE id=1 FOR SHARE')->fetch();
    $q=$this->db->prepare("SELECT c.id FROM chacaras c JOIN proprietarios p ON p.id=c.proprietario_id JOIN usuarios u ON u.id=p.usuario_id WHERE c.id=:id AND u.id=:u AND u.status='ativo' FOR UPDATE OF c");$q->execute(['id'=>$id,'u'=>$user]);if(!$q->fetchColumn())throw new RuntimeException('Imovel indisponivel para esta identidade.');
    $old=(new CommercialConfigurationService($this->db))->property($id);if((int)($old['versao']??0)!==$version)throw new RuntimeException('Condicao alterada em outra aba. Recarregue antes de salvar.');
    if($enabled&&($limits['entrada_minima_bps']===null||$bps===null||$bps<$limits['entrada_minima_bps']||$bps>$limits['entrada_maxima_bps']))throw new RuntimeException('Escolha a entrada dentro da faixa definida pelo administrador.');
-   $q=$this->db->prepare('INSERT INTO configuracoes_comerciais_imoveis(chacara_id,aceita_parcelamento,entrada_bps) VALUES(:id,:enabled,:bps) ON CONFLICT(chacara_id) DO UPDATE SET aceita_parcelamento=EXCLUDED.aceita_parcelamento,entrada_bps=EXCLUDED.entrada_bps,versao=configuracoes_comerciais_imoveis.versao+1,atualizado_em=clock_timestamp() RETURNING *');$q->execute(['id'=>$id,'enabled'=>$enabled,'bps'=>$enabled?$bps:null]);$this->history($id,$user,$old,$q->fetch());$this->db->commit();
-  }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
+   $q=$this->db->prepare('INSERT INTO configuracoes_comerciais_imoveis(chacara_id,aceita_parcelamento,entrada_bps) VALUES(:id,:enabled,:bps) ON CONFLICT(chacara_id) DO UPDATE SET aceita_parcelamento=EXCLUDED.aceita_parcelamento,entrada_bps=EXCLUDED.entrada_bps,versao=configuracoes_comerciais_imoveis.versao+1,atualizado_em=clock_timestamp() RETURNING *');$q->execute(['id'=>$id,'enabled'=>$enabled,'bps'=>$enabled?$bps:null]);$this->history($id,$user,$old,$q->fetch());if ($ownsTransaction) $this->db->commit();
+  }catch(Throwable $e){if($ownsTransaction && $this->db->inTransaction())$this->db->rollBack();throw $e;}
  }
  private function history(?int $id,int $user,?array $old,array $new):void{$this->db->prepare('INSERT INTO historico_condicoes_pagamento(chacara_id,usuario_id,anterior,nova) VALUES(:id,:u,CAST(:a AS jsonb),CAST(:n AS jsonb))')->execute(['id'=>$id,'u'=>$user,'a'=>$old?json_encode($old,JSON_THROW_ON_ERROR):null,'n'=>json_encode($new,JSON_THROW_ON_ERROR)]);}
 }

@@ -6,6 +6,10 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\Controller;
+use App\Core\Database;
+use App\Services\PropertyPaymentConfigurationService;
+use App\Services\CommercialConfigurationService;
+use App\Validators\AffiliateValidator;
 use App\Helpers\GoogleMapsHelper;
 use App\Models\Chacara;
 use App\Validators\ChacaraHoursValidator;
@@ -43,6 +47,8 @@ final class OwnerChacaraController extends Controller
             'title' => 'Cadastrar chacara',
             'panelRole' => 'proprietario',
             'chacara' => null,
+            'limites' => (new PropertyPaymentConfigurationService())->limits(),
+            'preferenciaPagamento' => ['aceita_parcelamento' => old('aceita_parcelamento', '0') === '1', 'entrada' => old('entrada'), 'entrada_bps' => null],
             'statuses' => self::STATUSES,
             'tiposImovel' => self::TIPOS_IMOVEL,
             'action' => url('/proprietario/chacaras/criar'),
@@ -58,13 +64,20 @@ final class OwnerChacaraController extends Controller
 
         $dados = $this->validarDados('/proprietario/chacaras/criar');
 
+        $db = Database::getConnection();
         try {
+            $enabled = ($_POST['aceita_parcelamento'] ?? '') === '1';
+            $entry = $enabled ? AffiliateValidator::commissionToBasisPoints((string) ($_POST['entrada'] ?? '')) : null;
+            $db->beginTransaction();
             $id = (new Chacara())->criarParaProprietario($proprietarioId, $dados);
+            (new PropertyPaymentConfigurationService($db))->saveOwner($id, (int) Auth::user()['id'], $enabled, $entry, 0);
+            $db->commit();
             clear_old();
             flash('success', 'Chacara cadastrada e enviada para aprovacao. Agora voce pode enviar fotos.');
             $this->redirect('/proprietario/chacaras/fotos/' . $id);
-        } catch (Throwable) {
-            flash('error', 'Nao foi possivel cadastrar a chacara agora.');
+        } catch (Throwable $exception) {
+            if ($db->inTransaction()) $db->rollBack();
+            flash('error', \App\Services\FinancialErrorMessage::publicMessage($exception, 'Nao foi possivel cadastrar a chacara agora.'));
             $this->redirect('/proprietario/chacaras/criar');
         }
     }
@@ -80,6 +93,8 @@ final class OwnerChacaraController extends Controller
             'panelRole' => 'proprietario',
             'chacara' => $chacara,
             'statuses' => self::STATUSES,
+            'limites' => (new PropertyPaymentConfigurationService())->limits(),
+            'preferenciaPagamento' => (new CommercialConfigurationService())->property((int) $chacara['id']) ?? ['aceita_parcelamento' => false, 'entrada_bps' => null],
             'tiposImovel' => self::TIPOS_IMOVEL,
             'action' => url('/proprietario/chacaras/editar/' . (int) $chacara['id']),
             'googleMapsApiKey' => $googleMaps->apiKey(),
@@ -235,6 +250,8 @@ final class OwnerChacaraController extends Controller
     private function validarDados(string $redirect): array
     {
         $dados = [
+            'aceita_parcelamento' => ($_POST['aceita_parcelamento'] ?? '') === '1' ? '1' : '0',
+            'entrada' => trim((string) ($_POST['entrada'] ?? '')),
             'nome' => trim((string) ($_POST['nome'] ?? '')),
             'descricao' => trim((string) ($_POST['descricao'] ?? '')),
             'tipo_imovel' => trim((string) ($_POST['tipo_imovel'] ?? 'chacara')),
