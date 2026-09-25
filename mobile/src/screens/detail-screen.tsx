@@ -10,6 +10,7 @@ import { Icon } from '@/components/icon';
 import { colors, fonts, radius } from '@/theme/tokens';
 import { hours, money, propertyType } from '@/utils/format';
 import { useAuth } from '@/providers/auth-provider';
+import { useFavorites } from '@/api/favorites';
 
 export default function DetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,6 +19,8 @@ export default function DetailScreen() {
   const property = query.data?.data;
   const router = useRouter();
   const { user } = useAuth();
+  const favorites = useFavorites();
+  const saved = favorites.query.data?.data.ids.includes(Number(id)) ?? false;
   const insets = useSafeAreaInsets();
   return <ScrollView contentInsetAdjustmentBehavior="automatic" refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => { if (valid) void query.refetch(); }} tintColor={colors.green800} />} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 28, gap: 20, width: '100%', maxWidth: 640, alignSelf: 'center' }}>
     <Stack.Screen options={{ title: property?.nome ?? 'Conheça o lugar' }} />
@@ -33,6 +36,9 @@ export default function DetailScreen() {
       <View style={{ padding: 18, gap: 14, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md }}><View style={{ flexDirection: 'row', gap: 8 }}><Icon name="clock" /><Copy title style={{ fontSize: 19 }}>Horários</Copy></View><Copy>Entrada: {hours(property.horarios.checkin_inicio, property.horarios.checkin_fim)}</Copy><Copy>Saída: {hours(property.horarios.checkout_inicio, property.horarios.checkout_fim)}</Copy></View>
       {property.galeria.slice(1).map((photo, index) => <RemoteImage key={`${photo.url}-${index}`} uri={photo.url} illustrative={photo.ilustrativa} label={`Foto ${index + 2} de ${property.nome}`} style={{ width: '100%', aspectRatio: 1.5, borderRadius: radius.md }} />)}
       <Button label="Reservar" onPress={() => user ? router.push({ pathname: '/portal', params: { path: `/reserva/criar/${id}` } }) : router.push({ pathname: '/acesso', params: { next: `/imovel/${id}` } })} />
+      <Button secondary label={saved ? 'Desfavoritar' : 'Favoritar'} disabled={!!user && (favorites.query.isPending || favorites.query.isError || favorites.mutation.isPending)} onPress={() => user ? favorites.mutation.mutate({ id: Number(id), saved: !saved }) : router.push({ pathname: '/acesso', params: { next: `/imovel/${id}` } })} />
+      {favorites.query.isError && user && <State title="Não foi possível consultar seus favoritos" description={favorites.query.error.message} action={() => void favorites.query.refetch()} />}
+      {favorites.mutation.isError && <Copy>{favorites.mutation.error.message}</Copy>}
       <Copy style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>{user ? 'Escolha as datas e confira o valor total antes de confirmar a reserva.' : 'Entre na sua conta para continuar.'}</Copy>
     </>}
   </ScrollView>;

@@ -23,7 +23,9 @@ foram alterados aprovação, comissões, repasses ou cronogramas. `entrada_bps` 
 - `POST /api/v1/mobile/web-session`: Bearer, destino permitido, ticket de 60 s.
 - `POST /mobile/entrar`: consome ticket uma única vez; não aceita destino livre.
 - `GET /mobile/mensalidades/{id}`: consulta a obrigação do proprietário e PIX.
-- `POST /mobile/mensalidades/{id}`: CSRF, emite/reutiliza PIX pelo serviço existente.
+- `POST /mobile/mensalidades/{id}`: CSRF, emite/reutiliza PIX ou captura cartão na mesma obrigação, conforme a política financeira.
+- `GET /api/v1/favoritos`: favoritos persistidos da conta autenticada.
+- `POST /api/v1/favoritos/{id}/salvar` e `/remover`: estado desejado idempotente, com Bearer.
 
 As demais ações reutilizam as rotas web existentes. O login/refresh móvel passa
 a admitir clientes e proprietários, nunca administradores/afiliados. Tokens não
@@ -33,11 +35,17 @@ retiram seu acesso. Tickets temporários são privados em `storage/cache/mobile-
 
 ## Limitações e operação
 
-- A integração exige internet e o backend publicado. Favoritos permanece na
-  situação anterior do aplicativo; não foi incluído nesta entrega.
-- Mensalidade no app tem PIX transparente. Cartão de mensalidade ainda depende
-  da captura hospedada legada e **não está implementado de forma transparente**.
-  O app não abre essa fatura nem cria outra cobrança quando já existe cartão.
+- A integração exige internet e o backend publicado. Favoritos usa a tabela web
+  existente, permite salvar/remover pelo detalhe e consultar/abrir pela aba nativa.
+- Mensalidade tem formulário transparente de cartão na WebView privada, sem fatura
+  hospedada. PAN, CVV e token não são persistidos; a intenção de captura contém
+  somente identidade/valor da cobrança. Concorrência é serializada e resultado
+  desconhecido exige consulta, sem repetir captura. Recusa definitiva exige suporte.
+- Na verificação de 25/09/2026, a VPS usa Asaas Sandbox, mensalidade global ativa
+  de R$ 119,90 (versão 1) e não contém obrigações mensais. A política autoriza apenas
+  PIX/boleto de reservas: emissão mensal e captura de cartão permanecem bloqueadas.
+  A consulta da wallet Sandbox passou; emissão/QR mensal real e captura mensal
+  real não foram homologadas. O bloqueio não foi ampliado nem contornado.
 - Cobranças legadas sem obrigação vinculada precisam de conciliação pelo suporte.
 - O modo Sandbox e sua lista de operações permitidas não foram ampliados: emitir
   uma mensalidade exige que o ambiente financeiro autorize essa operação. Testes
@@ -50,7 +58,8 @@ retiram seu acesso. Tickets temporários são privados em `storage/cache/mobile-
 
 `npm run typecheck`, `npm run lint`, `npm test` e `npx expo export --platform all`.
 Backend: `php tests/mobile_owner_integration_test.php`,
-`php tests/mobile_auth_postgresql_test.php`, `php tests/owner_web_payment_test.php`.
+`php tests/mobile_auth_postgresql_test.php`, `php tests/owner_web_payment_test.php`,
+`php tests/monthly_card_payment_test.php`.
 Os testes de integração recusam banco diferente de PostgreSQL local de desenvolvimento.
 Gateway mensal é simulado, incluindo reabertura e autorização; nenhuma cobrança real.
 

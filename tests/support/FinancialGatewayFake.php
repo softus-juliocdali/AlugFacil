@@ -12,6 +12,16 @@ final class FinancialGatewayFake implements AsaasPaymentClientInterface,AsaasTra
  public function listarCobrancas(array $f):array{return ['data'=>array_values(array_filter($this->payments,fn($x)=>($x['externalReference']??'')===($f['externalReference']??''))),'hasMore'=>false];}
  public function criarCobranca(array $p):array{$this->mutation();$this->paymentPosts++;if($this->beforePayment)($this->beforePayment)($p);$p+=['id'=>'pay_'.$this->scope.'_'.$this->paymentPosts,'status'=>'PENDING','invoiceUrl'=>'https://sandbox.asaas.com/i/test-only'];$this->payments[$p['id']]=$p;if($this->afterPayment)($this->afterPayment)($p);return $p;}
  public function consultarCobranca(string $id):array{return $this->payments[$id];}
+ public int $cardPosts=0; public string $cardMode='success'; public $duringCard=null;
+ public function pagarCobrancaCartao(string $id,#[\SensitiveParameter] array $payload):array {
+  $this->mutation();$this->cardPosts++;
+  if($this->duringCard)($this->duringCard)();
+  if($this->cardMode==='declined')throw new App\Services\AsaasApiException('Declined',400,'invalid_creditCard');
+  if($this->cardMode==='timeout')throw new App\Services\AsaasTimeoutException('Timeout');
+  $this->payments[$id]['status']='CONFIRMED';
+  if($this->cardMode==='timeout_after')throw new App\Services\AsaasTimeoutException('Timeout after capture');
+  return $this->payments[$id]+['creditCard'=>['creditCardToken'=>'must-not-persist']];
+ }
  public ?array $refundHistory=null;
  public int $refundPageSize=100;
  public function listarEstornosCobranca(string $id,array $query=[]):array{$items=$this->refundHistory??($this->payments[$id]['refunds']??[]);$offset=(int)($query['offset']??0);$limit=min($this->refundPageSize,(int)($query['limit']??100));return ['data'=>array_slice($items,$offset,$limit),'hasMore'=>$offset+$limit<count($items)];}

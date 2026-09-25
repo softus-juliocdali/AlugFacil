@@ -32,7 +32,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.alugfacil.cliente",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Selecione fotos para o anúncio do seu imóvel.",
         "NSCameraUsageDescription": "Fotografe seu imóvel para incluir no anúncio."
@@ -40,7 +40,7 @@
     },
     "android": {
       "package": "com.alugfacil.cliente",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

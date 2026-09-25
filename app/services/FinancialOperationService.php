@@ -66,7 +66,7 @@ final class FinancialOperationService
         } finally {$this->db->prepare('SELECT pg_advisory_unlock(741031,:id)')->execute(['id'=>$id]);}
     }
 
-    private function complete(int $id,array $response,string $action):array
+    private function complete(int $id,#[\SensitiveParameter] array $response,string $action):array
     {
         if(empty($response['id']))throw new RuntimeException('Recurso remoto sem identificador.');
         $safe=array_intersect_key($response,array_flip(['id','walletId','status','invoiceUrl','link','url','dueDate','externalReference','value','netValue','customer','billingType','deleted']));

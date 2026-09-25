@@ -82,6 +82,7 @@ final class PublicApi
     private function dispatch(string $method, string $path, array $query): array
     {
         $path = rtrim($path, '/');
+        if ($path === '/api/v1/favoritos' || str_starts_with($path, '/api/v1/favoritos/')) return (new MobileFavoritesApi())->dispatch($method, $path, $query);
         if ($path === '/api/v1/mobile/web-session') return (new MobileWebSession())->issue($method);
         if (MobileAuthApi::handles($path)) return (new MobileAuthApi())->dispatch($method, $path, $query);
         $known = in_array($path, ['/api/v1/health', '/api/v1/home', '/api/v1/imoveis'], true)

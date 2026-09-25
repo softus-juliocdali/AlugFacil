@@ -13,6 +13,17 @@ try {
     foreach(['proprietario','cliente'] as $role)$pairs[$role]=$sessions->create((new User())->findById($f->users[$role]),'Owner integration test');
     apiCheck($pairs['proprietario']['user']['tipo_usuario']==='proprietario','Owner role preserved in token DTO');
     $server=new PublicApiTestServer();
+    $favorites=function(string $path='',string $method='GET',string $role='cliente')use($server,&$pairs){return $server->request('/api/v1/favoritos'.$path,$method,['Authorization: Bearer '.$pairs[$role]['access_token'],'Content-Type: application/json'],$method==='POST'?'{}':null);};
+    apiCheck($server->request('/api/v1/favoritos')['status']===401,'Favorites require authentication');
+    foreach([1,2] as $_)apiCheck($favorites('/'.$f->property.'/salvar','POST')['json']['data']['favorito']===true,'Saving favorite is idempotent');
+    $favoriteList=$favorites()['json']['data'];
+    apiCheck($favoriteList['ids']===[$f->property] && $favoriteList['imoveis'][0]['id']===$f->property,'Favorites return existing public property DTO');
+    apiCheck($favorites('','GET','proprietario')['json']['data']['ids']===[],'Favorites isolated between accounts');
+    $renewed=$sessions->refresh($pairs['cliente']['refresh_token']);$pairs['cliente']=$renewed;
+    apiCheck($favorites()['json']['data']['ids']===[$f->property],'Favorites persist after session renewal');
+    foreach([1,2] as $_)apiCheck($favorites('/'.$f->property.'/remover','POST')['json']['data']['favorito']===false,'Removing favorite is idempotent');
+    apiCheck($favorites()['json']['data']['ids']===[],'Favorite removed from database');
+    apiCheck($favorites('/2147483647/salvar','POST')['status']===404,'Unavailable property cannot be favorited');
     $issue=function(string $path,string $role='proprietario')use($server,$pairs){return $server->request('/api/v1/mobile/web-session','POST',['Authorization: Bearer '.$pairs[$role]['access_token'],'Content-Type: application/json'],json_encode(['path'=>$path]));};
     apiCheck($issue('/proprietario/dashboard','cliente')['status']===422,'Client cannot exchange owner destination');
     apiCheck($issue('https://evil.invalid')['status']===422,'External destination rejected');
@@ -51,6 +62,14 @@ try {
     $q=$db->prepare('SELECT id FROM chacara_fotos WHERE chacara_id=:c');$q->execute(['c'=>$f->property]);$photo=$q->fetchColumn();
     apiCheck($upload['status']===302 && (bool)$photo,'Authenticated multipart photo upload uses existing image validation');
     $post('/proprietario/chacaras/fotos/'.$f->property,['acao'=>'remover','foto_id'=>$photo]);
+    $q=$db->prepare("INSERT INTO obrigacoes_mensalidades(chacara_id,proprietario_id,valor_centavos,vencimento,estado,versao_global,versao_imovel,percentual_afiliado_bps,comissao_afiliado_centavos) VALUES(:c,:p,1500,'2030-02-01','pendente',1,1,0,0) RETURNING id");$q->execute(['c'=>$f->property,'p'=>$f->owner]);$monthlyId=(int)$q->fetchColumn();
+    $monthlyPage=$server->request('/mobile/mensalidades/'.$monthlyId,'GET',['Cookie: '.$cookie]);
+    apiCheck($monthlyPage['status']===200 && str_contains($monthlyPage['body'],'monthly-card-form') && str_contains($monthlyPage['body'],'Gerar PIX') && !str_contains($monthlyPage['body'],'sandbox.asaas.com/i/'),'Transparent monthly PIX/card form inside authenticated app');
+    apiCheck(in_array('no-store',$monthlyPage['headers']['cache-control']??[],true),'Card screen is never cached');
+    $noCsrf=$server->request('/mobile/mensalidades/'.$monthlyId,'POST',['Cookie: '.$cookie,'Content-Type: application/x-www-form-urlencoded'],'method=CREDIT_CARD');
+    apiCheck($noCsrf['status']===302 && str_ends_with($noCsrf['headers']['location'][0],'/login'),'Monthly capture without CSRF returns to login');
+    $deniedMonthly=$post('/mobile/mensalidades/'.$monthlyId,['method'=>'PIX']);
+    apiCheck($deniedMonthly['status']===302 && $db->query('SELECT forma_pagamento FROM obrigacoes_mensalidades WHERE id='.$monthlyId)->fetchColumn()===null,'Blocked monthly emission leaves instrument unselected');
     $sessions->logout($pairs['proprietario']['refresh_token']);
     apiCheck($server->request('/proprietario/dashboard','GET',['Cookie: '.$cookie])['status']===302,'Mobile logout invalidates integrated Web session');
 

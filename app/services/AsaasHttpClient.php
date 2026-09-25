@@ -25,6 +25,8 @@ final class AsaasHttpClient implements AsaasClientInterface,AsaasPaymentClientIn
  public function consultarCobranca(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id));}
  public function pagarCartaoSandbox(string $id,#[\SensitiveParameter] array $payload):array
  {if(PHP_SAPI!=='cli'||getenv('DB_NAME')!=='alugfacil_dev'||!in_array(getenv('DB_HOST'),['localhost','127.0.0.1','::1'],true))throw new RuntimeException('Homologacao de cartao exige CLI local.');return $this->request('POST','/payments/'.rawurlencode($id).'/payWithCreditCard',$payload);}
+ public function pagarCobrancaCartao(string $id,#[\SensitiveParameter] array $payload):array
+ {return $this->request('POST','/payments/'.rawurlencode($id).'/payWithCreditCard',$payload);}
  public function consultarLinhaDigitavel(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id).'/identificationField');}
  public function consultarQrCodePix(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id).'/pixQrCode');}
  public function cancelarCobranca(string $id):array{return $this->request('DELETE','/payments/'.rawurlencode($id));}

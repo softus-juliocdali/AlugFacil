@@ -6,7 +6,7 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-/** Individual monthly obligations, charged through hosted invoices without card data. */
+/** Individual monthly obligations; card capture is a separate durable operation. */
 final class MonthlyBillingService
 {
     public function __construct(private ?PDO $db=null,private ?AsaasPaymentClientInterface $client=null){$this->db??=Database::getConnection();}
@@ -18,6 +18,7 @@ final class MonthlyBillingService
             if(!$o||$o['estado']!=='pendente')throw new RuntimeException('Obrigacao indisponivel para este proprietario.');
             if($o['forma_pagamento']!==null&&$o['forma_pagamento']!==$method)throw new RuntimeException('Ja existe instrumento escolhido. Concilie ou cancele antes de trocar o meio.');
             if($o['asaas_payment_id']){$this->db->commit();return $o;}
+            if($this->client===null || $this->client instanceof AsaasHttpClient) FinancialReleasePolicy::assertMonthlyPaymentsAllowed();
             $this->db->prepare('UPDATE obrigacoes_mensalidades SET forma_pagamento=:m WHERE id=:id')->execute(['m'=>$method,'id'=>$id]);$this->db->commit();
         }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
         $client=$this->client??=new AsaasHttpClient();

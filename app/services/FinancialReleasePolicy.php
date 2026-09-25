@@ -29,7 +29,15 @@ final class FinancialReleasePolicy
         if (!in_array($user,$r['users'],true)||!in_array($property,$r['properties'],true)) throw new \RuntimeException('Reservas Sandbox liberadas somente para perfis e imoveis de teste autorizados.');
     }
 
-    public static function assertExternalMutationAllowed(string $method='',string $path='',array $payload=[]): void
+    public static function assertMonthlyPaymentsAllowed(): void
+    {
+        self::registry();
+        // The published allowlist below covers reservation obligations only.
+        // Fail before selecting an instrument, creating a customer or recording a send.
+        throw new \RuntimeException('Mensalidades bloqueadas neste ambiente: a política Sandbox autoriza apenas cobranças de reservas por PIX/boleto. Nenhuma cobrança mensal foi enviada.');
+    }
+
+    public static function assertExternalMutationAllowed(string $method='',string $path='',#[\SensitiveParameter] array $payload=[]): void
     {
         $r=self::registry();
         $c=FinancialOperationService::outboundContext();
