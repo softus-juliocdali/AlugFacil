@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
-    <link rel="stylesheet" href="<?= asset('css/panel.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/panel.css') ?>?v=20260925-01">
 </head>
-<body class="panel-body">
+<body class="panel-body panel-role-<?= e($panelRole) ?><?= $panelRole === 'admin' && preg_match('~^admin/(chacaras|mensalidades|reservas/index|financeiro/index)~', $view) ? ' admin-web-fix' : '' ?>">
     <?php if ($message = flash('success')): ?>
         <div class="flash flash-success" role="status" data-flash>
             <span><?= e($message) ?></span>

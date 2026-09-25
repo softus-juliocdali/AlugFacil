@@ -20,6 +20,7 @@ final class AsaasHttpClient implements AsaasClientInterface,AsaasPaymentClientIn
  public function listarCobrancas(array$f):array{return$this->request('GET','/payments',[],$f);}
  public function criarCobranca(array$p):array{return$this->request('POST','/payments',$p);}
  public function consultarCobranca(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id));}
+ public function consultarLinhaDigitavel(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id).'/identificationField');}
  public function consultarQrCodePix(string$id):array{return$this->request('GET','/payments/'.rawurlencode($id).'/pixQrCode');}
  public function listarAssinaturas(array$f):array{return$this->request('GET','/subscriptions',[],$f);}
  public function criarAssinatura(array$p):array{AsaasEnvironment::assertCredentials(true);return$this->request('POST','/subscriptions',$p);}

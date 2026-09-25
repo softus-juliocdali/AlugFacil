@@ -1015,3 +1015,27 @@
     .heading-actions .status-pill { align-self: flex-start; }
     .panel-navbar-afiliado .user-chip > span:last-child { display: none; }
 }
+
+/* Scoped web corrections: admin menu and requested screens only. */
+.panel-role-admin .panel-sidebar { overflow-y: auto; overscroll-behavior: contain; }
+.panel-role-admin .sidebar-nav { flex-shrink: 0; padding-bottom: 16px; }
+.admin-web-fix .panel-main { padding-top: calc(var(--panel-nav-height) + 34px); min-width: 0; }
+.admin-web-fix .panel-page-heading { position: static; height: auto; flex-wrap: wrap; }
+.admin-web-fix .panel-card { margin-bottom: 24px; min-width: 0; }
+.admin-web-fix .billing-filter-form { margin-bottom: 20px; align-items: flex-end; }
+.admin-web-fix .billing-filter-form label { display: grid; gap: 8px; min-width: 180px; }
+.admin-web-fix .billing-filter-form input, .admin-web-fix .billing-filter-form select { margin: 0; min-height: 44px; }
+.admin-web-fix .responsive-table { width: 100%; overflow-x: auto; }
+.admin-web-fix .panel-table { min-width: 880px; width: 100%; table-layout: auto; }
+.admin-web-fix .panel-table th, .admin-web-fix .panel-table td { padding: 16px; vertical-align: middle; }
+.admin-web-fix .panel-table td { min-width: 120px; }
+.admin-web-fix .owner-property-form { gap: 18px; align-items: end; }
+.admin-web-fix .owner-property-form label { display: grid; gap: 8px; min-width: 0; }
+.admin-web-fix .owner-property-form label:has(input[type="checkbox"]) { display: flex; align-items: center; }
+.admin-web-fix .owner-property-form input[type="checkbox"] { width: auto; min-height: auto; margin: 0; }
+.admin-web-fix .admin-detail-grid > * { min-width: 0; }
+.admin-web-fix .admin-detail-list dd { overflow-wrap: anywhere; }
+.panel-role-cliente .client-detail-actions form { display: grid; gap: 14px; margin: 0; }
+.panel-role-cliente .client-detail-actions label { display: grid; gap: 8px; font-weight: 600; }
+.panel-role-cliente .client-detail-actions textarea { width: 100%; min-height: 92px; padding: 12px; resize: vertical; box-sizing: border-box; border: 1px solid #dce5dc; border-radius: 8px; font: inherit; }
+.panel-role-cliente .client-detail-actions .btn { min-height: 44px; box-sizing: border-box; }

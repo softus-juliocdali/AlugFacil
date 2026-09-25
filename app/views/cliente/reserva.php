@@ -46,11 +46,7 @@ $podeAvaliar = ($reserva['status_reserva'] ?? '') === 'finalizada' && empty($res
         </dl>
 
         <div class="client-detail-actions">
-            <?php if (!empty($reserva['link_pagamento_asaas'])): ?>
-                <a class="btn btn-primary" href="<?= e($reserva['link_pagamento_asaas']) ?>" target="_blank" rel="noopener">Pagar Reserva</a>
-            <?php else: ?>
-                <div class="payment-empty">Esta reserva ainda nao possui link de pagamento.</div>
-            <?php endif; ?>
+            <a class="btn btn-primary" href="<?= url('/reserva/confirmacao/' . (int)$reserva['id']) ?>"><?= in_array($reserva['status_reserva'], ['aguardando_pagamento','confirmada','em_andamento'], true) ? 'Pagar Reserva' : 'Ver pagamentos da reserva' ?></a>
 
             <?php if ($podeAvaliar): ?>
                 <a class="btn btn-outline" href="<?= url('/chacara/' . (int) $reserva['chacara_id']) ?>">Avaliar</a>
